@@ -23,8 +23,8 @@ object NetworkErrorParser {
         if (msg.contains("401", ignoreCase = true) || msg.contains("Unauthorized", ignoreCase = true)) {
             return if (isLoginAttempt) {
                 NetworkResult.Error(
-                    messageEn = "Backend authentication failed (401 Unauthorized): The Google token was rejected by the server.",
-                    messageBn = "সার্ভারে গুগল প্রমাণীকরণ ব্যর্থ হয়েছে (৪০১ Unauthorized): টোকেনটি সার্ভার গ্রহণ করেনি।",
+                    messageEn = "Authentication failed (401 Unauthorized): The authorization code is invalid or has expired. Please sign in again.",
+                    messageBn = "প্রমাণীকরণ ব্যর্থ হয়েছে (৪০১ Unauthorized): অনুমোদন কোডটি অবৈধ বা মেয়াদোত্তীর্ণ। অনুগ্রহ করে আবার সাইন-ইন করুন।",
                     code = 401,
                     isAuthError = true
                 )
@@ -36,6 +36,22 @@ object NetworkErrorParser {
                     isAuthError = true
                 )
             }
+        }
+        if (msg.contains("403", ignoreCase = true) || msg.contains("Forbidden", ignoreCase = true)) {
+            return NetworkResult.Error(
+                messageEn = "Access denied (403 Forbidden): The authorization code has already been used or is expired.",
+                messageBn = "প্রবেশাধিকার অস্বীকৃত (৪০৩ Forbidden): অনুমোদন কোডটি ইতিমধ্যে ব্যবহৃত বা মেয়াদোত্তীর্ণ।",
+                code = 403,
+                isAuthError = true
+            )
+        }
+        if (msg.contains("400", ignoreCase = true) || msg.contains("Bad Request", ignoreCase = true)) {
+            return NetworkResult.Error(
+                messageEn = "Bad Request (400): Invalid authorization code request.",
+                messageBn = "অনুরোধটি ত্রুটিপূর্ণ (৪০০ Bad Request): অবৈধ অনুমোদন কোড।",
+                code = 400,
+                isAuthError = false
+            )
         }
         if (msg.contains("404", ignoreCase = true) || msg.contains("Not Found", ignoreCase = true)) {
             return if (isLoginAttempt) {

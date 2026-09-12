@@ -3,7 +3,6 @@ package com.ajyra.amarhishab.presentation.screens
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,7 +58,7 @@ import com.ajyra.amarhishab.presentation.viewmodel.AuthViewModel
 import com.ajyra.amarhishab.ui.theme.EmeraldPrimary
 import kotlinx.coroutines.launch
 
-private const val WEB_LOGIN_URL = "https://amar-hisab.onrender.com/accounts/login/?app_redirect=amarhishab://auth/callback"
+private const val WEB_LOGIN_URL = "https://amar-hisab.onrender.com/accounts/login/?next=amarhishab%3A%2F%2Fauth%2Fcallback"
 
 @Composable
 fun LoginScreen(
@@ -185,9 +184,9 @@ fun LoginScreen(
 
                     Text(
                         text = if (isBengali)
-                            "নিরাপদে আপনার হিসাবে প্রবেশ করতে গুগল দিয়ে সাইন-ইন করুন"
+                            "নিরাপদে আপনার হিসাবে প্রবেশ করতে ওয়েবসাইট লগইন সম্পন্ন করুন"
                         else
-                            "Sign in with your Google account to access your finances securely",
+                            "Sign in with your Google account on the Amar Hishab website to access your finances securely",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -208,19 +207,19 @@ fun LoginScreen(
                             Spacer(modifier = Modifier.height(14.dp))
                             Text(
                                 text = if (isBengali)
-                                    "সার্ভার যাচাই ও সেশন গ্রহণ করা হচ্ছে..."
+                                    "অনুমোদন কোড যাচাই করা হচ্ছে..."
                                 else
-                                    "Exchanging authorization code with server...",
+                                    "Verifying authorization code with server...",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
                         }
                     } else {
-                        // Google Sign-In Web Flow Button
+                        // Google Sign-In System Browser Button
                         Button(
                             onClick = {
-                                launchWebAuthentication(context, WEB_LOGIN_URL)
+                                launchSystemBrowser(context, WEB_LOGIN_URL)
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -260,9 +259,9 @@ fun LoginScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = if (isBengali)
-                                    "ব্রাউজারে নিরাপদ লগইন উইন্ডো খুলবে"
+                                    "সিস্টেম ব্রাউজারে অমর হিসাব ওয়েবসাইট খুলবে"
                                 else
-                                    "Opens secure website login in browser",
+                                    "Opens Amar Hishab website in system browser",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
@@ -334,19 +333,11 @@ fun LoginScreen(
     }
 }
 
-private fun launchWebAuthentication(context: Context, url: String) {
-    val uri = Uri.parse(url)
-    try {
-        val customTabsIntent = CustomTabsIntent.Builder()
-            .setShowTitle(true)
-            .build()
-        customTabsIntent.launchUrl(context, uri)
-    } catch (e: Exception) {
-        val browserIntent = Intent(Intent.ACTION_VIEW, uri).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        }
-        context.startActivity(browserIntent)
+private fun launchSystemBrowser(context: Context, url: String) {
+    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
+    context.startActivity(browserIntent)
 }
 
 @Composable
