@@ -32,7 +32,10 @@
                 <data
                     android:scheme="amarhishab"
                     android:host="auth"
-                    android:path="/callback" />
+                    android:pathPrefix="/callback" />
+                <data
+                    android:scheme="amarhishab"
+                    android:host="callback" />
             </intent-filter>
         </activity>
     </application>

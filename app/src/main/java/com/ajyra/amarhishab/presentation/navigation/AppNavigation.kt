@@ -77,6 +77,10 @@ fun AppNavigation(
             navController.navigate(Screen.Login.route) {
                 popUpTo(0) { inclusive = true }
             }
+        } else if (isAuthenticated && currentRoute == Screen.Login.route) {
+            navController.navigate(Screen.Home.route) {
+                popUpTo(Screen.Login.route) { inclusive = true }
+            }
         }
     }
 

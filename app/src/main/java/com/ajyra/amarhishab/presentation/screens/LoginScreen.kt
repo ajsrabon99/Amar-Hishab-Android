@@ -36,6 +36,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -264,6 +265,35 @@ fun LoginScreen(
                                     "Opens Amar Hishab website in system browser",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        TextButton(
+                            onClick = {
+                                val testUri = Uri.parse("amarhishab://auth/callback?code=test")
+                                val testIntent = Intent(Intent.ACTION_VIEW, testUri).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                try {
+                                    context.startActivity(testIntent)
+                                } catch (e: Exception) {
+                                    authViewModel.setError(
+                                        messageEn = "Deep link test failed: ${e.message}",
+                                        messageBn = "ডিপ লিংক টেস্ট ব্যর্থ হয়েছে: ${e.message}"
+                                    )
+                                }
+                            },
+                            modifier = Modifier.testTag("test_deep_link_button")
+                        ) {
+                            Text(
+                                text = if (isBengali)
+                                    "ডিপ লিংক যাচাই (amarhishab://auth/callback?code=test)"
+                                else
+                                    "Test Deep Link (amarhishab://auth/callback?code=test)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }

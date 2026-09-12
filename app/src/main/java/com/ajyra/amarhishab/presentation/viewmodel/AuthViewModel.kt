@@ -32,10 +32,16 @@ class AuthViewModel(
 
     fun handleAuthDeepLink(uri: Uri?) {
         if (uri == null) return
-        val scheme = uri.scheme
-        val host = uri.host
-        val path = uri.path
-        if (scheme == "amarhishab" && host == "auth" && path == "/callback") {
+        val scheme = uri.scheme?.lowercase() ?: return
+        if (scheme != "amarhishab") return
+
+        val host = uri.host?.lowercase() ?: ""
+        val path = (uri.path ?: "").trimEnd('/')
+
+        val isCallback = (host == "auth" && (path == "/callback" || path.isEmpty())) ||
+                (host == "callback")
+
+        if (isCallback) {
             val error = uri.getQueryParameter("error")
             val errorDesc = uri.getQueryParameter("error_description")
             if (!error.isNullOrBlank()) {
@@ -45,7 +51,7 @@ class AuthViewModel(
                 return
             }
 
-            val code = uri.getQueryParameter("code")
+            val code = uri.getQueryParameter("code") ?: uri.getQueryParameter("auth_code")
             if (!code.isNullOrBlank()) {
                 exchangeAuthCode(code)
             } else {
