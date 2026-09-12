@@ -1,0 +1,6 @@
+{
+  "name": "Amar Hishab",
+  "description": "Personal finance management application to track income, expenses, account balances, transfers, and financial reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
