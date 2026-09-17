@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Amar Hishab{% endblock %}
+
+{% block extra_css %}
+<style>
+  .dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .dash-title h1 {
+    font-size: 26px;
+    font-weight: 800;
+  }
+  .dash-title p {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-top: 4px;
+  }
+  .user-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid var(--emerald);
+    color: var(--emerald);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .btn-signout {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background 0.2s;
+  }
+  .btn-signout:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: var(--red);
+    color: #fca5a5;
+  }
+  .overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card .label {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .stat-card .value {
+    font-size: 24px;
+    font-weight: 800;
+    margin: 8px 0 4px;
+  }
+  .stat-card.balance .value {
+    color: var(--emerald);
+  }
+  .stat-card.income .value {
+    color: #3b82f6;
+  }
+  .stat-card.expense .value {
+    color: #ef4444;
+  }
+  .stat-card.savings .value {
+    color: #f59e0b;
+  }
+  .accounts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .account-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .account-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    font-size: 20px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+  }
+  .account-meta h4 {
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .account-meta span {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .account-meta .amt {
+    font-size: 15px;
+    font-weight: 800;
+    margin-top: 2px;
+  }
+  .section-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+  .section-box h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .tx-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .tx-table th {
+    text-align: left;
+    padding: 10px 14px;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  .tx-table td {
+    padding: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tx-income {
+    color: var(--emerald);
+    font-weight: 700;
+  }
+  .tx-expense {
+    color: var(--red);
+    font-weight: 700;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+  <div class="dash-title">
+    <h1 data-en="Dashboard Overview" data-bn="ড্যাশবোর্ড ওভারভিউ">Dashboard Overview</h1>
+    <p>
+      <span data-en="Logged in as" data-bn="লগইন আছেন:">Logged in as</span>
+      <strong>{{ user.username }}</strong> ({{ user.email }})
+      <span class="user-badge" style="margin-left: 8px;">✓ <span data-en="Verified" data-bn="ভেরিফাইড">Verified</span></span>
+    </p>
+  </div>
+  <div class="header-actions">
+    <a href="{% url 'account_logout' %}" class="btn-signout" data-en="Sign Out" data-bn="লগআউট">Sign Out</a>
+  </div>
+</div>
+
+<!-- Financial Stats Overview -->
+<div class="overview-grid">
+  <div class="stat-card balance">
+    <div class="label" data-en="Total Net Balance" data-bn="মোট ব্যালেন্স">Total Net Balance</div>
+    <div class="value">৳ {{ total_balance }}</div>
+    <div style="font-size: 12px; color: var(--emerald);">● <span data-en="Live Portfolio" data-bn="লাইভ পোর্টফোলিও">Live Portfolio</span></div>
+  </div>
+  <div class="stat-card income">
+    <div class="label" data-en="Monthly Income" data-bn="চলতি মাসের আয়">Monthly Income</div>
+    <div class="value">৳ {{ monthly_income }}</div>
+    <div style="font-size: 12px; color: #3b82f6;">↑ <span data-en="Recorded Deposits" data-bn="জমা হিসাব">Recorded Deposits</span></div>
+  </div>
+  <div class="stat-card expense">
+    <div class="label" data-en="Monthly Expense" data-bn="চলতি মাসের ব্যয়">Monthly Expense</div>
+    <div class="value">৳ {{ monthly_expense }}</div>
+    <div style="font-size: 12px; color: #ef4444;">↓ <span data-en="Tracked Outflows" data-bn="খরচ হিসাব">Tracked Outflows</span></div>
+  </div>
+  <div class="stat-card savings">
+    <div class="label" data-en="Savings Ratio" data-bn="সঞ্চয়ের হার">Savings Ratio</div>
+    <div class="value">{{ savings_rate }}</div>
+    <div style="font-size: 12px; color: #f59e0b;">★ <span data-en="Target: > 30%" data-bn="লক্ষ্য: > ৩০%">Target: > 30%</span></div>
+  </div>
+</div>
+
+<!-- Accounts Breakdown -->
+<div class="section-box">
+  <h3 data-en="Financial Accounts & Wallets" data-bn="হিসাব ও ওয়ালেটসমূহ">Financial Accounts & Wallets</h3>
+  <div class="accounts-grid">
+    {% for acc in accounts %}
+      <div class="account-item">
+        <div class="account-icon">{{ acc.icon }}</div>
+        <div class="account-meta">
+          <h4>{{ acc.name }}</h4>
+          <span>{{ acc.type }}</span>
+          <div class="amt" style="color: {{ acc.color }};">৳ {{ acc.balance }}</div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Recent Transactions -->
+<div class="section-box">
+  <h3 data-en="Recent Transactions" data-bn="সাম্প্রতিক লেনদেনসমূহ">Recent Transactions</h3>
+  <div style="overflow-x: auto;">
+    <table class="tx-table">
+      <thead>
+        <tr>
+          <th data-en="Date" data-bn="তারিখ">Date</th>
+          <th data-en="Description" data-bn="বিবরণ">Description</th>
+          <th data-en="Category" data-bn="ক্যাটাগরি">Category</th>
+          <th data-en="Account" data-bn="হিসাব">Account</th>
+          <th data-en="Amount (BDT)" data-bn="পরিমাণ (টাকা)" style="text-align: right;">Amount (BDT)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tx in recent_transactions %}
+          <tr>
+            <td>{{ tx.date }}</td>
+            <td><strong>{{ tx.title }}</strong></td>
+            <td>{{ tx.category }}</td>
+            <td>{{ tx.account }}</td>
+            <td style="text-align: right;" class="{% if tx.type == 'income' %}tx-income{% else %}tx-expense{% endif %}">
+              ৳ {{ tx.amount }}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

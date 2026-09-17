@@ -17,19 +17,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -40,6 +42,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -55,13 +59,17 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.ajyra.amarhishab.BuildConfig
 import com.ajyra.amarhishab.data.local.ReleaseNotesRepository
@@ -69,6 +77,7 @@ import com.ajyra.amarhishab.presentation.viewmodel.ProfileViewModel
 import com.ajyra.amarhishab.presentation.viewmodel.UpdateCheckState
 import com.ajyra.amarhishab.ui.theme.EmeraldPrimary
 import com.ajyra.amarhishab.ui.theme.ExpenseRed
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,6 +88,7 @@ fun ProfileScreen(
     onLogout: () -> Unit
 ) {
     val user by profileViewModel.user.collectAsState()
+    val isAuthenticated by profileViewModel.isAuthenticated.collectAsState()
     val updateCheckState by profileViewModel.updateCheckState.collectAsState()
     val snackbarMessage by profileViewModel.snackbarMessage.collectAsState()
 
@@ -87,10 +97,18 @@ fun ProfileScreen(
     var biometricLock by remember { mutableStateOf(false) }
 
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showDisconnectDialog by remember { mutableStateOf(false) }
+    var showConnectDialog by remember { mutableStateOf(false) }
     var showReleaseNotesDialog by remember { mutableStateOf(false) }
     var showHelpDialog by remember { mutableStateOf(false) }
 
+    // Connect account form state
+    var connectIdentifier by remember { mutableStateOf("") }
+    var connectPassword by remember { mutableStateOf("") }
+    var isConnecting by remember { mutableStateOf(false) }
+
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(snackbarMessage) {
         snackbarMessage?.let {
@@ -99,16 +117,129 @@ fun ProfileScreen(
         }
     }
 
-    if (showLogoutDialog) {
+    // Disconnect Website Account Dialog
+    if (showDisconnectDialog) {
         AlertDialog(
-            onDismissRequest = { showLogoutDialog = false },
+            onDismissRequest = { showDisconnectDialog = false },
             title = {
-                Text(if (isBengali) "লগআউট করতে চান?" else "Confirm Logout")
+                Text(if (isBengali) "অ্যাকাউন্ট সংযোগ বিচ্ছিন্ন করবেন?" else "Disconnect Website Account?")
             },
             text = {
                 Text(
                     if (isBengali)
-                        "আপনি কি আপনার হিসাব অ্যাকাউন্ট থেকে লগআউট করতে নিশ্চিত?"
+                        "এটি সার্ভার থেকে আপনার মোবাইল এক্সেস টোকেন বাতিল করবে। আপনার সংরক্ষিত স্থানীয় হিসাব сохран থাকবে।"
+                    else
+                        "This will revoke your mobile authorization token on the Amar Hishab server and clear session locally."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDisconnectDialog = false
+                        profileViewModel.disconnectAccount(onDisconnectComplete = onLogout)
+                    }
+                ) {
+                    Text(if (isBengali) "সংযোগ বিচ্ছিন্ন করুন" else "Disconnect Account", color = ExpenseRed)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDisconnectDialog = false }) {
+                    Text(if (isBengali) "বাতিল" else "Cancel")
+                }
+            }
+        )
+    }
+
+    // Connect Account Dialog
+    if (showConnectDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!isConnecting) showConnectDialog = false },
+            title = {
+                Text(if (isBengali) "অমর হিসাব অ্যাকাউন্ট সংযোগ করুন" else "Connect Amar Hishab Account")
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = if (isBengali)
+                            "ওয়েবসাইট অ্যাকাউন্টের ইউজারনেম/ইমেইল এবং পাসওয়ার্ড দিন:"
+                        else
+                            "Enter your website username/email and password:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedTextField(
+                        value = connectIdentifier,
+                        onValueChange = { connectIdentifier = it },
+                        label = { Text(if (isBengali) "ইউজারনেম বা ইমেইল" else "Username or Email") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = connectPassword,
+                        onValueChange = { connectPassword = it },
+                        label = { Text(if (isBengali) "পাসওয়ার্ড" else "Password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (connectIdentifier.isNotBlank() && connectPassword.isNotBlank()) {
+                            isConnecting = true
+                            profileViewModel.connectAccount(connectIdentifier, connectPassword) { success, err ->
+                                isConnecting = false
+                                if (success) {
+                                    showConnectDialog = false
+                                    connectPassword = ""
+                                } else {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(err ?: "Authentication failed")
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    enabled = !isConnecting && connectIdentifier.isNotBlank() && connectPassword.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                ) {
+                    if (isConnecting) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                    } else {
+                        Text(if (isBengali) "সংযোগ করুন" else "Connect")
+                    }
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showConnectDialog = false },
+                    enabled = !isConnecting
+                ) {
+                    Text(if (isBengali) "বাতিল" else "Cancel")
+                }
+            }
+        )
+    }
+
+    // Sign Out Dialog
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = {
+                Text(if (isBengali) "লগআউট করতে চান?" else "Confirm Sign Out")
+            },
+            text = {
+                Text(
+                    if (isBengali)
+                        "আপনি কি আপনার হিসাব অ্যাকাউন্ট থেকে লগআউট করতে চান?"
                     else
                         "Are you sure you want to sign out from your account?"
                 )
@@ -120,7 +251,7 @@ fun ProfileScreen(
                         profileViewModel.logout(onLogoutComplete = onLogout)
                     }
                 ) {
-                    Text(if (isBengali) "লগআউট" else "Logout", color = ExpenseRed)
+                    Text(if (isBengali) "লগআউট" else "Sign Out", color = ExpenseRed)
                 }
             },
             dismissButton = {
@@ -256,7 +387,7 @@ fun ProfileScreen(
 
                         Column {
                             Text(
-                                text = user?.name ?: if (isBengali) "ব্যবহারকারী" else "User",
+                                text = user?.displayName?.ifBlank { user?.username } ?: (if (isBengali) "ব্যবহারকারী" else "User"),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -274,12 +405,91 @@ fun ProfileScreen(
                                     .padding(horizontal = 8.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = if (isBengali) "অ্যাক্টিভ হিসাব" else "Active Account",
+                                    text = if (isAuthenticated) {
+                                        if (isBengali) "✓ সক্রিয় অ্যাকাউন্ট" else "✓ Active Account"
+                                    } else {
+                                        if (isBengali) "অফলাইন মোড" else "Offline Mode"
+                                    },
                                     style = MaterialTheme.typography.labelSmall,
                                     color = EmeraldPrimary,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
+                        }
+                    }
+                }
+            }
+
+            // ================= SECTION: ACCOUNT (REQUIREMENT 9) =================
+            item {
+                SectionHeader(if (isBengali) "অ্যাকাউন্ট সংযোগ" else "Account")
+                Spacer(modifier = Modifier.height(6.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column {
+                        if (isAuthenticated && user != null) {
+                            // Connected Account info
+                            SettingsRow(
+                                icon = Icons.Default.AccountCircle,
+                                title = if (isBengali) "সংযুক্ত অ্যাকাউন্ট" else "Connected Account",
+                                subtitle = "${user?.username} (${user?.email})"
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                            SettingsRow(
+                                icon = Icons.Default.CheckCircle,
+                                title = if (isBengali) "সংযোগ স্ট্যাটাস" else "Connection Status",
+                                subtitle = if (isBengali) "ওয়েবসাইট এবং মোবাইল সিঙ্ক সক্রিয়" else "Website & mobile sync active",
+                                trailingContent = {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(EmeraldPrimary.copy(alpha = 0.15f))
+                                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = if (isBengali) "সংযুক্ত" else "Connected",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = EmeraldPrimary,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                            SettingsRow(
+                                icon = Icons.Default.LinkOff,
+                                title = if (isBengali) "ওয়েবসাইট অ্যাকাউন্ট ডিসকানেক্ট" else "Disconnect Website Account",
+                                subtitle = if (isBengali) "সার্ভার টোকেন বাতিল করুন" else "Revoke server access token",
+                                onClick = { showDisconnectDialog = true },
+                                trailingContent = {
+                                    Text(
+                                        text = if (isBengali) "ডিসকানেক্ট" else "Disconnect",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = ExpenseRed,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            )
+                        } else {
+                            // Not Connected state
+                            SettingsRow(
+                                icon = Icons.Default.Sync,
+                                title = if (isBengali) "অমর হিসাব অ্যাকাউন্ট সংযোগ করুন" else "Connect Amar Hishab Account",
+                                subtitle = if (isBengali) "ওয়েবসাইট অ্যাকাউন্টের সাথে সিঙ্ক করুন" else "Sync with your website account",
+                                onClick = { showConnectDialog = true },
+                                trailingContent = {
+                                    Button(
+                                        onClick = { showConnectDialog = true },
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                                    ) {
+                                        Text(if (isBengali) "সংযোগ করুন" else "Connect")
+                                    }
+                                }
+                            )
                         }
                     }
                 }
@@ -438,7 +648,7 @@ fun ProfileScreen(
                     Icon(imageVector = Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isBengali) "লগআউট করুন" else "Sign Out",
+                        text = if (isBengali) "সাইন আউট করুন" else "Sign Out",
                         fontWeight = FontWeight.Bold
                     )
                 }

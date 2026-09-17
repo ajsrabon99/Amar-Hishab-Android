@@ -1,9 +1,8 @@
 package com.ajyra.amarhishab.presentation.screens
 
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,21 +17,30 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.OpenInBrowser
-import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -41,37 +49,57 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ajyra.amarhishab.R
 import com.ajyra.amarhishab.presentation.viewmodel.AuthUiState
 import com.ajyra.amarhishab.presentation.viewmodel.AuthViewModel
 import com.ajyra.amarhishab.ui.theme.EmeraldPrimary
 import kotlinx.coroutines.launch
 
-private const val WEB_LOGIN_URL = "https://amar-hisab.onrender.com/accounts/login/?next=amarhishab%3A%2F%2Fauth%2Fcallback"
-
 @Composable
 fun LoginScreen(
     authViewModel: AuthViewModel,
     isBengali: Boolean,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    onNavigateToRegister: () -> Unit,
+    onNavigateToVerifyEmail: (email: String) -> Unit
 ) {
-    val context = LocalContext.current
     val uiState by authViewModel.uiState.collectAsState()
     val isAuthenticated by authViewModel.isAuthenticated.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
+
+    var identifier by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+
+    // Dialog state for forgot password
+    var showResetPasswordDialog by remember { mutableStateOf(false) }
+    var resetEmail by remember { mutableStateOf("") }
+    var resetStep by remember { mutableStateOf(1) }
+    var resetCode by remember { mutableStateOf("") }
+    var resetNewPassword by remember { mutableStateOf("") }
 
     LaunchedEffect(isAuthenticated) {
         if (isAuthenticated) {
@@ -94,6 +122,8 @@ fun LoginScreen(
         }
     }
 
+    val isLoading = uiState is AuthUiState.Loading
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -103,69 +133,50 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(24.dp),
+                .padding(horizontal = 24.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Brand Logo & Icon (Preserved exactly as existing)
-            Box(
+            // Official Amar Hishab Brand Logo
+            Image(
+                painter = painterResource(id = R.drawable.amar_hishab_icon),
+                contentDescription = "Amar Hishab Logo",
                 modifier = Modifier
                     .size(88.dp)
                     .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                EmeraldPrimary,
-                                MaterialTheme.colorScheme.primaryContainer
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AccountBalanceWallet,
-                    contentDescription = "Amar Hishab Logo",
-                    tint = Color.White,
-                    modifier = Modifier.size(48.dp)
-                )
-            }
+            )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            // App Name
             Text(
                 text = if (isBengali) "আমার হিসাব" else "Amar Hishab",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = EmeraldPrimary,
-                textAlign = TextAlign.Center
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 28.sp
+                ),
+                color = MaterialTheme.colorScheme.onBackground
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // App Subtitle
             Text(
-                text = if (isBengali)
-                    "আপনার ব্যক্তিগত ও পারিবারিক হিসাব রাখার বিশ্বস্ত ডিজিটাল মাধ্যম"
-                else
-                    "Your personal & family income-expense tracker",
+                text = if (isBengali) "আপনার নিরাপদ আর্থিক হিসাব খাতা" else "Your Personal Financial Tracker",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                modifier = Modifier.padding(top = 4.dp)
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
-            // Main Auth Card
+            // Main Login Card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("auth_card"),
+                    .testTag("login_card"),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
@@ -175,183 +186,300 @@ fun LoginScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = if (isBengali) "স্বাগতম" else "Welcome",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = if (isBengali) "সাইন ইন করুন" else "Sign In",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Start
+                    )
+
+                    Text(
+                        text = if (isBengali) "ইউজারনেম বা ইমেইল এবং পাসওয়ার্ড দিন" else "Enter your username/email and password",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp, bottom = 20.dp),
+                        textAlign = TextAlign.Start
+                    )
+
+                    // Error banner
+                    if (uiState is AuthUiState.Error) {
+                        val errorState = uiState as AuthUiState.Error
+                        val errorMsg = if (isBengali) errorState.messageBn else errorState.messageEn
+                        val isEmailNotVerified = errorMsg.contains("verify", ignoreCase = true) ||
+                                errorState.messageEn.contains("verified", ignoreCase = true) ||
+                                errorState.messageEn.contains("VERIFIED", ignoreCase = true)
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 16.dp)
+                                .testTag("error_banner"),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ErrorOutline,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = errorMsg,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    IconButton(
+                                        onClick = { authViewModel.clearError() },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Dismiss",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+
+                                if (isEmailNotVerified) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    TextButton(
+                                        onClick = {
+                                            authViewModel.clearError()
+                                            onNavigateToVerifyEmail(identifier.trim())
+                                        },
+                                        modifier = Modifier.align(Alignment.End)
+                                    ) {
+                                        Text(
+                                            text = if (isBengali) "ইমেইল ভেরিফাই করুন →" else "Verify Email Now →",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                            color = EmeraldPrimary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Identifier input
+                    OutlinedTextField(
+                        value = identifier,
+                        onValueChange = {
+                            identifier = it
+                            if (uiState is AuthUiState.Error) authViewModel.clearError()
+                        },
+                        label = { Text(if (isBengali) "ইউজারনেম বা ইমেইল" else "Username or Email") },
+                        placeholder = { Text(if (isBengali) "যেমন: srabon বা user@example.com" else "e.g. srabon or user@example.com") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = EmeraldPrimary
+                            )
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("identifier_input"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = EmeraldPrimary,
+                            focusedLabelColor = EmeraldPrimary
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Password input
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = {
+                            password = it
+                            if (uiState is AuthUiState.Error) authViewModel.clearError()
+                        },
+                        label = { Text(if (isBengali) "পাসওয়ার্ড" else "Password") },
+                        placeholder = { Text("••••••••") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = EmeraldPrimary
+                            )
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                )
+                            }
+                        },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                focusManager.clearFocus()
+                                if (!isLoading && identifier.isNotBlank() && password.isNotBlank()) {
+                                    authViewModel.loginWithPassword(identifier, password, onLoginSuccess)
+                                }
+                            }
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("password_input"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = EmeraldPrimary,
+                            focusedLabelColor = EmeraldPrimary
+                        )
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Text(
-                        text = if (isBengali)
-                            "নিরাপদে আপনার হিসাবে প্রবেশ করতে ওয়েবসাইট লগইন সম্পন্ন করুন"
-                        else
-                            "Sign in with your Google account on the Amar Hishab website to access your finances securely",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(modifier = Modifier.height(28.dp))
-
-                    if (uiState is AuthUiState.Loading) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                            modifier = Modifier.padding(vertical = 16.dp)
-                        ) {
-                            CircularProgressIndicator(
+                    // Forgot Password link
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Text(
+                            text = if (isBengali) "পাসওয়ার্ড ভুলে গেছেন?" else "Forgot Password?",
+                            style = MaterialTheme.typography.bodySmall.copy(
                                 color = EmeraldPrimary,
-                                modifier = Modifier.size(40.dp)
-                            )
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Text(
-                                text = if (isBengali)
-                                    "অনুমোদন কোড যাচাই করা হচ্ছে..."
-                                else
-                                    "Verifying authorization code with server...",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    } else {
-                        // Google Sign-In System Browser Button
-                        Button(
-                            onClick = {
-                                launchSystemBrowser(context, WEB_LOGIN_URL)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp)
-                                .testTag("google_sign_in_button"),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = EmeraldPrimary,
-                                contentColor = Color.White
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Security,
-                                contentDescription = "Sign in with Google",
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = if (isBengali) "গুগল দিয়ে প্রবেশ করুন" else "Sign in with Google",
-                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.OpenInBrowser,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (isBengali)
-                                    "সিস্টেম ব্রাউজারে অমর হিসাব ওয়েবসাইট খুলবে"
-                                else
-                                    "Opens Amar Hishab website in system browser",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        TextButton(
-                            onClick = {
-                                val testUri = Uri.parse("amarhishab://auth/callback?code=test")
-                                val testIntent = Intent(Intent.ACTION_VIEW, testUri).apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            ),
+                            modifier = Modifier
+                                .clickable {
+                                    resetEmail = if (identifier.contains("@")) identifier else ""
+                                    resetStep = 1
+                                    showResetPasswordDialog = true
                                 }
-                                try {
-                                    context.startActivity(testIntent)
-                                } catch (e: Exception) {
-                                    authViewModel.setError(
-                                        messageEn = "Deep link test failed: ${e.message}",
-                                        messageBn = "ডিপ লিংক টেস্ট ব্যর্থ হয়েছে: ${e.message}"
-                                    )
-                                }
-                            },
-                            modifier = Modifier.testTag("test_deep_link_button")
-                        ) {
+                                .padding(vertical = 4.dp)
+                                .testTag("forgot_password_button")
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Submit Button
+                    Button(
+                        onClick = {
+                            focusManager.clearFocus()
+                            authViewModel.loginWithPassword(identifier, password, onLoginSuccess)
+                        },
+                        enabled = !isLoading && identifier.isNotBlank() && password.isNotBlank(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .testTag("login_button"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = EmeraldPrimary
+                        )
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
                             Text(
-                                text = if (isBengali)
-                                    "ডিপ লিংক যাচাই (amarhishab://auth/callback?code=test)"
-                                else
-                                    "Test Deep Link (amarhishab://auth/callback?code=test)",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
+                                text = if (isBengali) "সাইন ইন" else "Sign In",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                ),
+                                color = Color.White
                             )
                         }
                     }
 
-                    if (uiState is AuthUiState.Error) {
-                        val err = uiState as AuthUiState.Error
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                            shape = RoundedCornerShape(12.dp)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Action links: Register & Verify Email
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = onNavigateToRegister,
+                            modifier = Modifier.testTag("register_button")
                         ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Text(
-                                    text = if (isBengali) err.messageBn else err.messageEn,
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    lineHeight = 18.sp
+                            Text(
+                                text = if (isBengali) "নতুন অ্যাকাউন্ট?" else "Create Account",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = EmeraldPrimary,
+                                    fontWeight = FontWeight.Bold
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                OutlinedButton(
-                                    onClick = { authViewModel.clearError() },
-                                    modifier = Modifier.align(Alignment.End),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        text = if (isBengali) "আবার চেষ্টা করুন" else "Try Again",
-                                        style = MaterialTheme.typography.labelSmall
-                                    )
-                                }
-                            }
+                            )
+                        }
+
+                        TextButton(
+                            onClick = {
+                                onNavigateToVerifyEmail(identifier.trim())
+                            },
+                            modifier = Modifier.testTag("verify_code_button")
+                        ) {
+                            Text(
+                                text = if (isBengali) "ইমেইল ভেরিফাই কোড" else "Verify Code",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            )
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
-            // Trust & Features highlights
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+            // Security note
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
             ) {
-                FeatureRow(
-                    icon = Icons.Default.Security,
-                    text = if (isBengali) "ব্যাংক-গ্রেড এনক্রিপ্টেড ডাটা স্টোরেজ" else "Bank-grade encrypted local storage"
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = EmeraldPrimary,
+                    modifier = Modifier.size(16.dp)
                 )
-                FeatureRow(
-                    icon = Icons.Default.Lock,
-                    text = if (isBengali) "রিয়েল-টাইম ক্লাউড ব্যাকআপ এবং সিঙ্ক" else "Real-time cloud backup & synchronization"
-                )
-                FeatureRow(
-                    icon = Icons.Default.CheckCircle,
-                    text = if (isBengali) "অফলাইনে নির্বিঘ্নে ব্যবহারের সুবিধা" else "Seamless offline mode capability"
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (isBengali)
+                        "নিরাপদ ও এনক্রিপ্ট করা হিসাব রক্ষণাবেক্ষণ"
+                    else
+                        "Secure encrypted financial tracking",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            Spacer(modifier = Modifier.height(32.dp))
         }
 
         SnackbarHost(
@@ -361,35 +489,120 @@ fun LoginScreen(
                 .padding(16.dp)
         )
     }
-}
 
-private fun launchSystemBrowser(context: Context, url: String) {
-    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-    context.startActivity(browserIntent)
-}
+    // ================= FORGOT PASSWORD DIALOG =================
+    if (showResetPasswordDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetPasswordDialog = false },
+            title = {
+                Text(
+                    text = if (isBengali) "পাসওয়ার্ড রিসেট" else "Reset Password",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (resetStep == 1) {
+                        Text(
+                            text = if (isBengali)
+                                "আপনার নিবন্ধিত ইমেইল ঠিকানা দিন:"
+                            else
+                                "Enter your registered email address:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
 
-@Composable
-private fun FeatureRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    text: String
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = EmeraldPrimary,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        OutlinedTextField(
+                            value = resetEmail,
+                            onValueChange = { resetEmail = it },
+                            label = { Text(if (isBengali) "ইমেইল" else "Email") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        Text(
+                            text = if (isBengali)
+                                "ইমেইলে পাঠানো কোড ও নতুন পাসওয়ার্ড দিন:"
+                            else
+                                "Enter the code sent to your email and your new password:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        OutlinedTextField(
+                            value = resetCode,
+                            onValueChange = { if (it.length <= 6) resetCode = it },
+                            label = { Text(if (isBengali) "৬ ডিজিটের কোড" else "6-Digit Code") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        OutlinedTextField(
+                            value = resetNewPassword,
+                            onValueChange = { resetNewPassword = it },
+                            label = { Text(if (isBengali) "নতুন পাসওয়ার্ড (কমপক্ষে ৮ অক্ষর)" else "New Password (min 8 chars)") },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (resetStep == 1) {
+                            if (resetEmail.isNotBlank()) {
+                                authViewModel.requestPasswordReset(resetEmail) { success, msg ->
+                                    if (success) {
+                                        resetStep = 2
+                                    }
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(msg)
+                                    }
+                                }
+                            }
+                        } else {
+                            if (resetEmail.isNotBlank() && resetCode.isNotBlank() && resetNewPassword.isNotBlank()) {
+                                authViewModel.confirmPasswordReset(resetEmail, resetCode, resetNewPassword) { success, msg ->
+                                    if (success) {
+                                        showResetPasswordDialog = false
+                                        identifier = resetEmail
+                                        password = resetNewPassword
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(msg)
+                                        }
+                                    } else {
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(msg)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                ) {
+                    Text(
+                        if (resetStep == 1) {
+                            if (isBengali) "কোড পাঠান" else "Send Code"
+                        } else {
+                            if (isBengali) "পাসওয়ার্ড আপডেট করুন" else "Update Password"
+                        }
+                    )
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showResetPasswordDialog = false }) {
+                    Text(if (isBengali) "বাতিল" else "Cancel")
+                }
+            }
         )
     }
 }

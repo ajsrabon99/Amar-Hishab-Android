@@ -14,6 +14,10 @@ sealed class Screen(
     val icon: ImageVector? = null
 ) {
     object Login : Screen("login", "Login", "লগইন", null)
+    object Register : Screen("register", "Register", "রেজিস্ট্রেশন", null)
+    object VerifyEmail : Screen("verify_email?email={email}", "Verify Email", "ইমেইল ভেরিফাই", null) {
+        fun createRoute(email: String = ""): String = if (email.isNotBlank()) "verify_email?email=$email" else "verify_email"
+    }
     object Home : Screen("home", "Home", "হোম", Icons.Default.Home)
     object Transactions : Screen("transactions", "Transactions", "লেনদেন", Icons.Default.ReceiptLong)
     object Reports : Screen("reports", "Reports", "রিপোর্ট", Icons.Default.Assessment)

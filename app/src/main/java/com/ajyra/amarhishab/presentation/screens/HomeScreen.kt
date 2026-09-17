@@ -1,5 +1,6 @@
 package com.ajyra.amarhishab.presentation.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,9 +39,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ajyra.amarhishab.R
 import com.ajyra.amarhishab.model.AccountType
 import com.ajyra.amarhishab.presentation.components.AccountBalancePill
 import com.ajyra.amarhishab.presentation.components.EmptyStateView
@@ -75,18 +79,30 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = if (isBengali) "আমার হিসাব" else "Amar Hishab",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = EmeraldPrimary
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.amar_hishab_icon),
+                            contentDescription = "Amar Hishab Logo",
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
                         )
-                        Text(
-                            text = if (isBengali) "আর্থিক ড্যাশবোর্ড" else "Financial Dashboard",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = if (isBengali) "আমার হিসাব" else "Amar Hishab",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = EmeraldPrimary
+                            )
+                            Text(
+                                text = if (isBengali) "আর্থিক ড্যাশবোর্ড" else "Financial Dashboard",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 },
                 actions = {

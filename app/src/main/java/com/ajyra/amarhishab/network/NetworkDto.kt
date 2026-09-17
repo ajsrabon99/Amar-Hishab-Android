@@ -16,34 +16,19 @@ data class UserDto(
 
 @JsonClass(generateAdapter = true)
 data class AuthResponseDto(
-    @Json(name = "token") val token: String? = null,
-    @Json(name = "key") val key: String? = null,
-    @Json(name = "user") val user: UserDto? = null,
-    @Json(name = "message") val message: String? = null
-)
-
-@JsonClass(generateAdapter = true)
-data class AuthExchangeRequestDto(
-    @Json(name = "code") val code: String
-)
-
-@JsonClass(generateAdapter = true)
-data class AuthExchangeResponseDto(
     @Json(name = "status") val status: String? = null,
-    @Json(name = "session_id") val sessionId: String? = null,
     @Json(name = "token") val token: String? = null,
     @Json(name = "key") val key: String? = null,
+    @Json(name = "session_id") val sessionId: String? = null,
+    @Json(name = "expires_at") val expiresAt: String? = null,
     @Json(name = "user") val user: UserDto? = null,
-    @Json(name = "message") val message: String? = null
-)
-
-@JsonClass(generateAdapter = true)
-data class GoogleAuthRequestDto(
-    @Json(name = "id_token") val idToken: String
+    @Json(name = "message") val message: String? = null,
+    @Json(name = "error") val error: String? = null
 )
 
 @JsonClass(generateAdapter = true)
 data class LoginRequestDto(
+    @Json(name = "identifier") val identifier: String? = null,
     @Json(name = "email") val email: String? = null,
     @Json(name = "username") val username: String? = null,
     @Json(name = "password") val password: String
@@ -51,11 +36,36 @@ data class LoginRequestDto(
 
 @JsonClass(generateAdapter = true)
 data class RegisterRequestDto(
-    @Json(name = "email") val email: String,
     @Json(name = "username") val username: String,
+    @Json(name = "email") val email: String,
     @Json(name = "password") val password: String,
+    @Json(name = "confirm_password") val confirmPassword: String? = null,
     @Json(name = "first_name") val firstName: String? = null,
     @Json(name = "last_name") val lastName: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class VerifyCodeRequestDto(
+    @Json(name = "identifier") val identifier: String,
+    @Json(name = "code") val code: String
+)
+
+@JsonClass(generateAdapter = true)
+data class ResendCodeRequestDto(
+    @Json(name = "identifier") val identifier: String
+)
+
+@JsonClass(generateAdapter = true)
+data class PasswordResetRequestDto(
+    @Json(name = "email") val email: String,
+    @Json(name = "code") val code: String? = null,
+    @Json(name = "new_password") val newPassword: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class PasswordChangeRequestDto(
+    @Json(name = "old_password") val oldPassword: String,
+    @Json(name = "new_password") val newPassword: String
 )
 
 @JsonClass(generateAdapter = true)

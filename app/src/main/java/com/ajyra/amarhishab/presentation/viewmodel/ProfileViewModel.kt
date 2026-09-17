@@ -30,6 +30,8 @@ class ProfileViewModel(
     private val sessionManager: EncryptedSessionManager
 ) : ViewModel() {
 
+    val isAuthenticated: StateFlow<Boolean> = sessionManager.isAuthenticated
+
     val currentUser: User?
         get() = sessionManager.getCurrentUser()
 
@@ -38,9 +40,6 @@ class ProfileViewModel(
 
     private val _snackbarMessage = MutableStateFlow<String?>(null)
     val snackbarMessage: StateFlow<String?> = _snackbarMessage.asStateFlow()
-
-    val isGoogleAuth: Boolean
-        get() = sessionManager.isGoogleAuth()
 
     val language: StateFlow<String> = sessionManager.language
     val themeMode: StateFlow<String> = sessionManager.themeMode
@@ -90,6 +89,36 @@ class ProfileViewModel(
         _appLock.value = enabled
     }
 
+    fun connectAccount(
+        identifier: String,
+        password: String,
+        onComplete: (Boolean, String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            when (val result = authRepository.loginWithPassword(identifier, password)) {
+                is NetworkResult.Success -> {
+                    _user.value = result.data
+                    _snackbarMessage.value = "Account connected successfully!"
+                    onComplete(true, null)
+                }
+                is NetworkResult.Error -> {
+                    _snackbarMessage.value = result.messageEn
+                    onComplete(false, result.messageEn)
+                }
+                NetworkResult.Loading -> {}
+            }
+        }
+    }
+
+    fun disconnectAccount(onDisconnectComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            authRepository.logout()
+            _user.value = null
+            _snackbarMessage.value = "Website account disconnected and token revoked."
+            onDisconnectComplete()
+        }
+    }
+
     fun checkForUpdate(
         currentVersionCode: Int = BuildConfig.VERSION_CODE,
         currentVersionName: String = BuildConfig.VERSION_NAME
@@ -131,6 +160,7 @@ class ProfileViewModel(
     fun logout(onLogoutComplete: () -> Unit = {}) {
         viewModelScope.launch {
             authRepository.logout()
+            _user.value = null
             onLogoutComplete()
         }
     }

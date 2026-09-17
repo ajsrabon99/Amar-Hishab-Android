@@ -67,8 +67,7 @@ class EncryptedSessionManager(private val context: Context) {
     fun saveAuthSession(
         token: String? = null,
         sessionId: String? = null,
-        user: User? = null,
-        isGoogle: Boolean = true
+        user: User? = null
     ) {
         val prefs = securePrefs
             ?: throw SecurityException("Encrypted storage unavailable. Storing credentials in unencrypted storage is prohibited.")
@@ -76,11 +75,11 @@ class EncryptedSessionManager(private val context: Context) {
         prefs.edit().apply {
             if (!token.isNullOrBlank()) putString(KEY_AUTH_TOKEN, token) else remove(KEY_AUTH_TOKEN)
             if (!sessionId.isNullOrBlank()) putString(KEY_SESSION_ID, sessionId) else remove(KEY_SESSION_ID)
-            putBoolean(KEY_IS_GOOGLE, isGoogle)
             if (user != null) {
                 putString(KEY_USER_ID, user.id)
                 putString(KEY_USER_EMAIL, user.email)
-                putString(KEY_USER_NAME, user.displayName.ifBlank { user.email })
+                putString(KEY_USER_NAME, user.displayName.ifBlank { user.username.ifBlank { user.email } })
+                putString(KEY_USER_USERNAME, user.username)
                 if (user.avatarUrl != null) {
                     putString(KEY_USER_AVATAR, user.avatarUrl)
                 }
@@ -97,26 +96,26 @@ class EncryptedSessionManager(private val context: Context) {
     fun getCurrentUser(): User? {
         val prefs = securePrefs ?: return null
         val email = prefs.getString(KEY_USER_EMAIL, null) ?: return null
+        val username = prefs.getString(KEY_USER_USERNAME, null) ?: email.substringBefore("@")
+        val displayName = prefs.getString(KEY_USER_NAME, "") ?: username
         return User(
             id = prefs.getString(KEY_USER_ID, "") ?: "",
             email = email,
-            displayName = prefs.getString(KEY_USER_NAME, "") ?: "",
+            username = username,
+            displayName = displayName,
             avatarUrl = prefs.getString(KEY_USER_AVATAR, null),
-            isGoogleUser = prefs.getBoolean(KEY_IS_GOOGLE, false),
             isVerified = true
         )
     }
-
-    fun isGoogleAuth(): Boolean = securePrefs?.getBoolean(KEY_IS_GOOGLE, false) ?: false
 
     fun clearSession() {
         securePrefs?.edit()?.apply {
             remove(KEY_AUTH_TOKEN)
             remove(KEY_SESSION_ID)
-            remove(KEY_IS_GOOGLE)
             remove(KEY_USER_ID)
             remove(KEY_USER_EMAIL)
             remove(KEY_USER_NAME)
+            remove(KEY_USER_USERNAME)
             remove(KEY_USER_AVATAR)
             apply()
         }
@@ -168,9 +167,9 @@ class EncryptedSessionManager(private val context: Context) {
 
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_SESSION_ID = "session_id"
-        private const val KEY_IS_GOOGLE = "is_google"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_USER_EMAIL = "user_email"
+        private const val KEY_USER_USERNAME = "user_username"
         private const val KEY_USER_NAME = "user_name"
         private const val KEY_USER_AVATAR = "user_avatar"
         private const val KEY_LANGUAGE = "language"

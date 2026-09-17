@@ -12,7 +12,7 @@
     <string name="api_token_hint">sessionid বা auth token দিন</string>
     <string name="api_token_label">এপিআই কি অথবা জ্যাঙ্গো সেশন আইডি</string>
     <string name="app_name">আমার হিসাব</string>
-    <string name="auth_subtitle">আপনার আর্থিক তথ্য ক্লাউডের সাথে সমন্বয় করতে গুগল দিয়ে সাইন ইন করুন।</string>
+    <string name="auth_subtitle">আপনার আর্থিক তথ্য সমন্বয় করতে অমর হিসাব অ্যাকাউন্টে সাইন ইন করুন।</string>
     <string name="backend_server">ব্যাকএন্ড সার্ভার</string>
     <string name="backend_url_label">জ্যাঙ্গো সার্ভার ইউআরএল</string>
     <string name="biometric_lock">বায়োমেট্রিক / পিন সুরক্ষা</string>
@@ -20,7 +20,7 @@
     <string name="cancel">বাতিল</string>
     <string name="category">খাত</string>
     <string name="connect_button">সংযুক্ত করুন</string>
-    <string name="continue_with_google">Google দিয়ে চালিয়ে যান</string>
+    <string name="continue_with_account">অমর হিসাব দিয়ে এগিয়ে যান</string>
     <string name="currency_symbol">৳</string>
     <string name="dashboard">ড্যাশবোর্ড</string>
     <string name="date">তারিখ</string>

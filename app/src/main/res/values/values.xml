@@ -20,7 +20,7 @@
     <string name="api_token_hint">Paste sessionid or auth token</string>
     <string name="api_token_label">API Key or Django Session ID</string>
     <string name="app_name">Amar Hishab</string>
-    <string name="auth_subtitle">Sign in securely with your Google account to synchronize your financial records.</string>
+    <string name="auth_subtitle">Sign in securely with your account to synchronize your financial records.</string>
     <string name="backend_server">Backend Server</string>
     <string name="backend_url_label">Django Server URL</string>
     <string name="biometric_lock">Biometric / PIN Protection</string>
@@ -28,7 +28,7 @@
     <string name="cancel">Cancel</string>
     <string name="category">Category</string>
     <string name="connect_button">Connect</string>
-    <string name="continue_with_google">Continue with Google</string>
+    <string name="continue_with_account">Continue with Amar Hishab</string>
     <string name="currency_symbol">৳</string>
     <string name="dashboard">Dashboard</string>
     <string name="date">Date</string>

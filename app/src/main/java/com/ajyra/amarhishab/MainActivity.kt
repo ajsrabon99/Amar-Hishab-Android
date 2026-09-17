@@ -26,9 +26,6 @@ class MainActivity : ComponentActivity() {
 
         val sessionManager = EncryptedSessionManager.getInstance(applicationContext)
 
-        // Intercept deep link when app is launched from web auth callback
-        authViewModel.handleAuthDeepLink(intent?.data)
-
         setContent {
             val themeMode by sessionManager.themeMode.collectAsState()
             AmarHishabTheme(themeSetting = themeMode) {
@@ -40,7 +37,5 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        // Intercept deep link when activity is resumed via singleTask
-        authViewModel.handleAuthDeepLink(intent.data)
     }
 }

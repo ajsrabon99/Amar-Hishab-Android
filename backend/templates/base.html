@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Amar Hishab - Financial Management{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --surface: #111726;
+      --card-bg: #171f33;
+      --border: #232d44;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --emerald: #10b981;
+      --emerald-dark: #059669;
+      --emerald-glow: rgba(16, 185, 129, 0.2);
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --radius: 16px;
+    }
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --card-bg: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --emerald: #059669;
+      --emerald-dark: #047857;
+      --emerald-glow: rgba(5, 150, 105, 0.15);
+      --red: #dc2626;
+      --blue: #2563eb;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 800;
+      font-size: 19px;
+    }
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      background: linear-gradient(135deg, var(--emerald), #3b82f6);
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 15px;
+    }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .lang-toggle {
+      display: flex;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .lang-btn {
+      background: transparent;
+      border: 0;
+      color: var(--text-muted);
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .lang-btn.active {
+      background: var(--emerald);
+      color: #fff;
+    }
+    .theme-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 32px 16px;
+      width: 100%;
+      flex: 1;
+    }
+    .alert-box {
+      padding: 14px 18px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .alert-error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--red);
+      color: #fca5a5;
+    }
+    .alert-success {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid var(--emerald);
+      color: #6ee7b7;
+    }
+    .alert-warning {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid #f59e0b;
+      color: #fcd34d;
+    }
+    .alert-info {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid var(--blue);
+      color: #93c5fd;
+    }
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: var(--text-muted);
+      font-size: 13px;
+      border-top: 1px solid var(--border);
+      margin-top: auto;
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+  <nav>
+    <a class="brand" href="/">
+      <span class="brand-mark">AH</span>
+      <span>Amar Hishab</span>
+    </a>
+    <div class="nav-actions">
+      <div class="lang-toggle">
+        <button class="lang-btn" id="btnEn" onclick="switchLang('en')">EN</button>
+        <button class="lang-btn" id="btnBn" onclick="switchLang('bn')">বাং</button>
+      </div>
+      <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌓 Theme</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert-box alert-{{ message.tags }}">
+          <span>{{ message }}</span>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </div>
+
+  <footer>
+    <p>© {% now "Y" %} Amar Hishab. All rights reserved. Ajyra Tech.</p>
+  </footer>
+
+  <script>
+    function getStoredLang() {
+      return localStorage.getItem('amar_hishab_lang') || 'en';
+    }
+    function switchLang(lang) {
+      localStorage.setItem('amar_hishab_lang', lang);
+      document.getElementById('btnEn').classList.toggle('active', lang === 'en');
+      document.getElementById('btnBn').classList.toggle('active', lang === 'bn');
+      document.querySelectorAll('[data-en]').forEach(el => {
+        el.textContent = (lang === 'bn' && el.dataset.bn) ? el.dataset.bn : el.dataset.en;
+      });
+      document.querySelectorAll('[data-en-placeholder]').forEach(el => {
+        el.placeholder = (lang === 'bn' && el.dataset.bnPlaceholder) ? el.dataset.bnPlaceholder : el.dataset.enPlaceholder;
+      });
+    }
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme') || 'dark';
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('amar_hishab_theme', next);
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      const savedTheme = localStorage.getItem('amar_hishab_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      switchLang(getStoredLang());
+    });
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

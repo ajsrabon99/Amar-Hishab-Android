@@ -8,7 +8,6 @@ data class User(
     val lastName: String = "",
     val displayName: String = "",
     val avatarUrl: String? = null,
-    val isGoogleUser: Boolean = false,
     val isVerified: Boolean = true
 ) {
     val name: String

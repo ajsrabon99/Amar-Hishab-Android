@@ -1,6 +1,5 @@
 package com.ajyra.amarhishab.presentation.viewmodel
 
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ajyra.amarhishab.data.repository.AuthRepository
@@ -30,54 +29,49 @@ class AuthViewModel(
     private val _currentUser = MutableStateFlow<User?>(authRepository.getCurrentUser())
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
-    fun handleAuthDeepLink(uri: Uri?) {
-        if (uri == null) return
-        val scheme = uri.scheme?.lowercase() ?: return
-        if (scheme != "amarhishab") return
+    private val _isCheckingSession = MutableStateFlow<Boolean>(authRepository.hasToken())
+    val isCheckingSession: StateFlow<Boolean> = _isCheckingSession.asStateFlow()
 
-        val host = uri.host?.lowercase() ?: ""
-        val path = (uri.path ?: "").trimEnd('/')
+    init {
+        checkSessionStartup()
+    }
 
-        val isCallback = (host == "auth" && (path == "/callback" || path.isEmpty())) ||
-                (host == "callback")
-
-        if (isCallback) {
-            val error = uri.getQueryParameter("error")
-            val errorDesc = uri.getQueryParameter("error_description")
-            if (!error.isNullOrBlank()) {
-                val errEn = errorDesc?.ifBlank { null } ?: "Sign in was cancelled or failed ($error)."
-                val errBn = "সাইন-ইন বাতিল বা ব্যর্থ হয়েছে ($error)।"
-                _uiState.value = AuthUiState.Error(errEn, errBn)
-                return
-            }
-
-            val code = uri.getQueryParameter("code") ?: uri.getQueryParameter("auth_code")
-            if (!code.isNullOrBlank()) {
-                exchangeAuthCode(code)
+    fun checkSessionStartup() {
+        viewModelScope.launch {
+            if (authRepository.hasToken()) {
+                val isValid = authRepository.validateSessionOnStartup()
+                if (isValid) {
+                    _currentUser.value = authRepository.getCurrentUser()
+                } else {
+                    _currentUser.value = null
+                }
             } else {
-                _uiState.value = AuthUiState.Error(
-                    messageEn = "Authentication callback did not contain an authorization code.",
-                    messageBn = "প্রমাণীকরণ কলব্যাকে কোনো অনুমোদন কোড পাওয়া যায়নি।"
-                )
+                _currentUser.value = null
             }
+            _isCheckingSession.value = false
         }
     }
 
-    fun exchangeAuthCode(authCode: String) {
-        if (authCode.isBlank()) {
+    fun loginWithPassword(
+        identifier: String,
+        password: String,
+        onSuccess: (() -> Unit)? = null
+    ) {
+        if (identifier.isBlank() || password.isBlank()) {
             _uiState.value = AuthUiState.Error(
-                messageEn = "Authorization code is missing.",
-                messageBn = "অনুমোদন কোড পাওয়া যায়নি।"
+                messageEn = "Please enter both username/email and password.",
+                messageBn = "ইউজারনেম/ইমেইল এবং পাসওয়ার্ড উভয়ই লিখুন।"
             )
             return
         }
 
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
-            when (val result = authRepository.exchangeAuthCode(authCode)) {
+            when (val result = authRepository.loginWithPassword(identifier, password)) {
                 is NetworkResult.Success -> {
                     _currentUser.value = result.data
                     _uiState.value = AuthUiState.Success(result.data)
+                    onSuccess?.invoke()
                 }
                 is NetworkResult.Error -> {
                     _uiState.value = AuthUiState.Error(
@@ -88,6 +82,110 @@ class AuthViewModel(
                 NetworkResult.Loading -> {
                     _uiState.value = AuthUiState.Loading
                 }
+            }
+        }
+    }
+
+    fun register(
+        username: String,
+        email: String,
+        password: String,
+        confirmPassword: String = password,
+        onComplete: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            when (val result = authRepository.register(username, email, password, confirmPassword)) {
+                is NetworkResult.Success -> {
+                    _uiState.value = AuthUiState.Idle
+                    onComplete(true, result.data)
+                }
+                is NetworkResult.Error -> {
+                    _uiState.value = AuthUiState.Error(result.messageEn, result.messageBn)
+                    onComplete(false, result.messageEn)
+                }
+                NetworkResult.Loading -> {
+                    _uiState.value = AuthUiState.Loading
+                }
+            }
+        }
+    }
+
+    fun verifyEmail(
+        identifier: String,
+        code: String,
+        onComplete: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            when (val result = authRepository.verifyEmail(identifier, code)) {
+                is NetworkResult.Success -> {
+                    _currentUser.value = result.data
+                    _uiState.value = AuthUiState.Success(result.data)
+                    onComplete(true, "Email verified successfully!")
+                }
+                is NetworkResult.Error -> {
+                    _uiState.value = AuthUiState.Error(result.messageEn, result.messageBn)
+                    onComplete(false, result.messageEn)
+                }
+                NetworkResult.Loading -> {
+                    _uiState.value = AuthUiState.Loading
+                }
+            }
+        }
+    }
+
+    fun resendVerificationCode(
+        identifier: String,
+        onComplete: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch {
+            when (val result = authRepository.resendVerificationCode(identifier)) {
+                is NetworkResult.Success -> onComplete(true, result.data)
+                is NetworkResult.Error -> onComplete(false, result.messageEn)
+                NetworkResult.Loading -> {}
+            }
+        }
+    }
+
+    fun requestPasswordReset(
+        email: String,
+        onComplete: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            when (val result = authRepository.requestPasswordReset(email)) {
+                is NetworkResult.Success -> {
+                    _uiState.value = AuthUiState.Idle
+                    onComplete(true, result.data)
+                }
+                is NetworkResult.Error -> {
+                    _uiState.value = AuthUiState.Error(result.messageEn, result.messageBn)
+                    onComplete(false, result.messageEn)
+                }
+                NetworkResult.Loading -> {}
+            }
+        }
+    }
+
+    fun confirmPasswordReset(
+        email: String,
+        code: String,
+        newPassword: String,
+        onComplete: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            when (val result = authRepository.confirmPasswordReset(email, code, newPassword)) {
+                is NetworkResult.Success -> {
+                    _uiState.value = AuthUiState.Idle
+                    onComplete(true, result.data)
+                }
+                is NetworkResult.Error -> {
+                    _uiState.value = AuthUiState.Error(result.messageEn, result.messageBn)
+                    onComplete(false, result.messageEn)
+                }
+                NetworkResult.Loading -> {}
             }
         }
     }
@@ -108,9 +206,7 @@ class AuthViewModel(
         _uiState.value = AuthUiState.Error(messageEn, messageBn)
     }
 
-    fun onAuthCancelled() {
-        if (_uiState.value is AuthUiState.Loading) {
-            _uiState.value = AuthUiState.Idle
-        }
+    companion object {
+        private const val TAG = "AuthViewModel"
     }
 }

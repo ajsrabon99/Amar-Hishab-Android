@@ -79,7 +79,6 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.androidx.security.crypto)
-    implementation(libs.androidx.browser)
 
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.moshi)
@@ -91,4 +90,6 @@ dependencies {
     implementation(libs.okhttp.logging)
 
     implementation(libs.kotlinx.coroutines.android)
+
+    testImplementation(libs.junit)
 }

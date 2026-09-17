@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}Verify Your Email - Amar Hishab{% endblock %}
+
+{% block extra_css %}
+<style>
+  .verify-wrap {
+    min-height: calc(100vh - 180px);
+    display: grid;
+    place-items: center;
+    padding: 24px 16px;
+  }
+  .verify-card {
+    width: min(520px, 100%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px 32px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    text-align: center;
+  }
+  .verify-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid var(--emerald);
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    font-size: 30px;
+  }
+  .verify-card h1 {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+  .verify-card p.sub {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+  .verify-card p.recipient {
+    color: var(--text);
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 24px;
+    word-break: break-all;
+    background: var(--card-bg);
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    display: inline-block;
+  }
+  /* 6-Digit Code Box Container */
+  .digit-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .digit-input {
+    width: 52px;
+    height: 62px;
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 28px;
+    font-weight: 800;
+    text-align: center;
+    outline: none;
+    transition: all 0.2s ease;
+  }
+  .digit-input:focus {
+    border-color: var(--emerald);
+    box-shadow: 0 0 0 4px var(--emerald-glow);
+    transform: translateY(-2px);
+  }
+  .verify-submit-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    background: var(--emerald);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    box-shadow: 0 4px 14px var(--emerald-glow);
+  }
+  .verify-submit-btn:hover {
+    background: var(--emerald-dark);
+  }
+  .verify-submit-btn:active {
+    transform: scale(0.99);
+  }
+  .resend-box {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .resend-btn {
+    background: none;
+    border: none;
+    color: var(--emerald);
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    transition: background 0.15s;
+    text-decoration: underline;
+  }
+  .resend-btn:hover {
+    background: rgba(16, 185, 129, 0.1);
+  }
+  .change-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 13px;
+  }
+  .change-link:hover {
+    color: var(--text);
+    text-decoration: underline;
+  }
+  @media (max-width: 480px) {
+    .digit-input {
+      width: 42px;
+      height: 52px;
+      font-size: 22px;
+      gap: 6px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="verify-wrap">
+  <div class="verify-card">
+    <div class="verify-icon">✉️</div>
+    <h1 data-en="Verify your email" data-bn="ইমেইল ভেরিফাই করুন">Verify your email</h1>
+    <p class="sub" data-en="Enter the 6-digit code sent to your email." data-bn="আপনার ইমেইলে পাঠানো ৬ ডিজিটের কোডটি লিখুন।">
+      Enter the 6-digit code sent to your email.
+    </p>
+
+    {% if identifier %}
+      <p class="recipient">📧 {{ identifier }}</p>
+    {% endif %}
+
+    <!-- 6-Digit Code Verification Form -->
+    <form method="post" action="{% url 'account_verify_email' %}" id="verifyForm">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="verify">
+      <input type="hidden" name="identifier" value="{{ identifier }}">
+      <input type="hidden" name="code" id="fullCode" value="{{ code|default:'' }}">
+
+      <div class="digit-row">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="digit-input" id="digit-1" autofocus autocomplete="one-time-code">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="digit-input" id="digit-2">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="digit-input" id="digit-3">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="digit-input" id="digit-4">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="digit-input" id="digit-5">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="digit-input" id="digit-6">
+      </div>
+
+      <button type="submit" class="verify-submit-btn" id="verifyBtn" data-en="VERIFY EMAIL" data-bn="ইমেইল ভেরিফাই করুন">
+        VERIFY EMAIL
+      </button>
+    </form>
+
+    <!-- Resend Code and Back to Register Options -->
+    <div class="resend-box">
+      <div>
+        <form method="post" action="{% url 'account_resend_code' %}" style="display:inline;" id="resendForm">
+          {% csrf_token %}
+          <input type="hidden" name="identifier" value="{{ identifier }}">
+          <button type="submit" class="resend-btn" id="resendBtn" data-en="Resend Code" data-bn="কোড পুনরায় পাঠান">
+            Resend Code
+          </button>
+        </form>
+      </div>
+      <div>
+        <a href="{% url 'account_register' %}" class="change-link" data-en="Wrong email? Register again" data-bn="ভুল ইমেইল? আবার রেজিস্টার করুন">
+          Wrong email? Register again
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const inputs = [
+      document.getElementById('digit-1'),
+      document.getElementById('digit-2'),
+      document.getElementById('digit-3'),
+      document.getElementById('digit-4'),
+      document.getElementById('digit-5'),
+      document.getElementById('digit-6')
+    ];
+    const fullCode = document.getElementById('fullCode');
+    const verifyForm = document.getElementById('verifyForm');
+
+    // Prepopulate if code was passed back
+    if (fullCode.value && fullCode.value.length === 6) {
+      fullCode.value.split('').forEach((c, idx) => {
+        if (inputs[idx]) inputs[idx].value = c;
+      });
+    }
+
+    function syncCode() {
+      const codeStr = inputs.map(i => i.value).join('');
+      fullCode.value = codeStr;
+      return codeStr;
+    }
+
+    inputs.forEach((input, index) => {
+      input.addEventListener('input', (e) => {
+        const val = e.target.value.replace(/[^0-9]/g, '');
+        e.target.value = val ? val.slice(-1) : '';
+
+        syncCode();
+
+        if (e.target.value && index < inputs.length - 1) {
+          inputs[index + 1].focus();
+        }
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace') {
+          if (!input.value && index > 0) {
+            inputs[index - 1].focus();
+          }
+        }
+      });
+
+      input.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const pasteData = (e.clipboardData || window.clipboardData).getData('text').trim();
+        const digits = pasteData.replace(/[^0-9]/g, '').slice(0, 6);
+        if (digits) {
+          digits.split('').forEach((digit, i) => {
+            if (inputs[i]) inputs[i].value = digit;
+          });
+          syncCode();
+          const focusIndex = Math.min(digits.length, inputs.length - 1);
+          inputs[focusIndex].focus();
+        }
+      });
+    });
+
+    verifyForm.addEventListener('submit', (e) => {
+      const code = syncCode();
+      if (code.length !== 6) {
+        e.preventDefault();
+        alert('Please enter all 6 digits of your verification code.');
+        const emptyIdx = inputs.findIndex(i => !i.value);
+        if (emptyIdx !== -1) inputs[emptyIdx].focus();
+      }
+    });
+
+    // Auto-focus first empty input
+    const firstEmpty = inputs.find(i => !i.value) || inputs[0];
+    if (firstEmpty) firstEmpty.focus();
+  });
+</script>
+{% endblock %}

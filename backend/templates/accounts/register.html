@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}Create Account - Amar Hishab{% endblock %}
+
+{% block extra_css %}
+<style>
+  .auth-wrap {
+    min-height: calc(100vh - 180px);
+    display: grid;
+    place-items: center;
+    padding: 20px 0;
+  }
+  .auth-shell {
+    width: min(880px, 100%);
+    display: grid;
+    grid-template-columns: 1fr 1.1fr;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  }
+  .auth-brand {
+    padding: 44px;
+    background: linear-gradient(145deg, #111e33, #0d1524 70%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .auth-brand h2 {
+    font-size: 28px;
+    margin: 12px 0;
+    color: #fff;
+  }
+  .auth-brand p {
+    color: #94a3b8;
+    line-height: 1.6;
+    font-size: 14px;
+  }
+  .auth-card {
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .auth-card h1 {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 6px;
+  }
+  .auth-card p.sub {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  .form-group {
+    margin-bottom: 14px;
+  }
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: var(--text);
+  }
+  .form-input {
+    width: 100%;
+    padding: 11px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus {
+    border-color: var(--emerald);
+    box-shadow: 0 0 0 3px var(--emerald-glow);
+  }
+  .auth-submit-btn {
+    width: 100%;
+    padding: 13px;
+    border-radius: 10px;
+    background: var(--emerald);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 10px;
+  }
+  .auth-submit-btn:hover {
+    background: var(--emerald-dark);
+  }
+  .auth-links {
+    margin-top: 18px;
+    text-align: center;
+    font-size: 13px;
+  }
+  .auth-links a {
+    color: var(--emerald);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .auth-links a:hover {
+    text-decoration: underline;
+  }
+  @media (max-width: 768px) {
+    .auth-shell {
+      grid-template-columns: 1fr;
+    }
+    .auth-brand {
+      display: none;
+    }
+    .auth-card {
+      padding: 30px 20px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-shell">
+    <div class="auth-brand">
+      <div style="font-size: 38px;">✨</div>
+      <h2 data-en="Start Managing Your Wealth" data-bn="আপনার আর্থিক যাত্রা শুরু করুন">Start Managing Your Wealth</h2>
+      <p data-en="Join Amar Hishab today. Track daily expenditures, monitor savings, and keep balances accurate across all your accounts."
+         data-bn="আজই অমর হিসাব-এ যোগ দিন। প্রতিদিনের খরচ ট্র্যাক করুন, সঞ্চয় বাড়ান এবং ব্যাংক ও মোবাইল ওয়ালেটের হিসাব ঠিক রাখুন।">
+        Join Amar Hishab today. Track daily expenditures, monitor savings, and keep balances accurate across all your accounts.
+      </p>
+    </div>
+
+    <div class="auth-card">
+      <h1 data-en="Create Account" data-bn="নতুন অ্যাকাউন্ট">Create Account</h1>
+      <p class="sub" data-en="Sign up to start tracking your finances" data-bn="আয়-ব্যয়ের হিসাব রাখতে সাইন আপ করুন">
+        Sign up to start tracking your finances
+      </p>
+
+      <form method="post" action="{% url 'account_register' %}">
+        {% csrf_token %}
+
+        <div class="form-group">
+          <label for="username" data-en="Username" data-bn="ইউজারনেম">Username</label>
+          <input type="text" id="username" name="username" class="form-input"
+                 value="{{ username }}" required autofocus
+                 data-en-placeholder="Choose a username"
+                 data-bn-placeholder="একটি ইউজারনেম পছন্দ করুন"
+                 placeholder="Choose a username">
+        </div>
+
+        <div class="form-group">
+          <label for="email" data-en="Email Address" data-bn="ইমেইল ঠিকানা">Email Address</label>
+          <input type="email" id="email" name="email" class="form-input"
+                 value="{{ email }}" required
+                 data-en-placeholder="you@example.com"
+                 data-bn-placeholder="you@example.com"
+                 placeholder="you@example.com">
+        </div>
+
+        <div class="form-group">
+          <label for="password" data-en="Password (min 8 chars)" data-bn="পাসওয়ার্ড (কমপক্ষে ৮ অক্ষর)">Password (min 8 chars)</label>
+          <input type="password" id="password" name="password" class="form-input"
+                 required minlength="8"
+                 data-en-placeholder="••••••••"
+                 data-bn-placeholder="••••••••"
+                 placeholder="••••••••">
+        </div>
+
+        <div class="form-group">
+          <label for="confirm_password" data-en="Confirm Password" data-bn="পাসওয়ার্ড নিশ্চিত করুন">Confirm Password</label>
+          <input type="password" id="confirm_password" name="confirm_password" class="form-input"
+                 required minlength="8"
+                 data-en-placeholder="••••••••"
+                 data-bn-placeholder="••••••••"
+                 placeholder="••••••••">
+        </div>
+
+        <button type="submit" class="auth-submit-btn" data-en="REGISTER" data-bn="রেজিস্টার করুন">
+          REGISTER
+        </button>
+      </form>
+
+      <div class="auth-links">
+        <span data-en="Already have an account?" data-bn="ইতিমধ্যে অ্যাকাউন্ট আছে?">Already have an account?</span>
+        <a href="{% url 'account_login' %}" data-en="Sign In" data-bn="লগইন করুন">Sign In</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

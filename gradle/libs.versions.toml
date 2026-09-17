@@ -11,12 +11,12 @@ ksp = "2.3.5"
 moshi = "1.15.2"
 retrofit = "2.12.0"
 okhttp = "4.12.0"
-browser = "1.8.0"
 securityCrypto = "1.1.0-alpha03"
 coroutines = "1.10.2"
+junit = "4.13.2"
 
 [libraries]
-androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version = "1.15.0" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }
