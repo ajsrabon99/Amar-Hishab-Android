@@ -53,7 +53,7 @@ object GitHubUpdateRepository {
                     }
                 }
 
-                // Extract version code from tag or default to 2 if higher than current
+                // Extract version code from tag (e.g. 1.0.1 -> 101, 1.1.0 -> 110)
                 val versionCode = extractVersionCode(tagName)
 
                 NetworkResult.Success(
@@ -66,30 +66,35 @@ object GitHubUpdateRepository {
                         downloadUrl = apkDownloadUrl
                     )
                 )
-            } else {
-                // If repo is private or doesn't have releases yet, return current version up to date
+            } else if (response.code == 404) {
+                // Repository exists or is being set up; no releases have been published yet
                 NetworkResult.Success(
                     AppUpdateInfo(
                         latestVersion = "1.0.0",
                         latestVersionCode = 1,
                         minSupportedVersion = "1.0.0",
                         updateRequired = false,
-                        releaseNotes = "You are using the latest version of Amar Hishab.",
+                        releaseNotes = "Connected to GitHub (github.com/$GITHUB_OWNER/$GITHUB_REPO). You are using the latest version of Amar Hishab.",
                         downloadUrl = "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases"
                     )
                 )
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "GitHub release check fallback: ${e.message}")
-            NetworkResult.Success(
-                AppUpdateInfo(
-                    latestVersion = "1.0.0",
-                    latestVersionCode = 1,
-                    minSupportedVersion = "1.0.0",
-                    updateRequired = false,
-                    releaseNotes = "You are using the latest version of Amar Hishab.",
-                    downloadUrl = "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases"
+            } else {
+                NetworkResult.Error(
+                    messageEn = "GitHub returned HTTP ${response.code}. Please try again later.",
+                    messageBn = "গিটহাব থেকে ত্রুটি এসেছে (কোড ${response.code})। অনুগ্রহ করে পরে চেষ্টা করুন।"
                 )
+            }
+        } catch (e: java.io.IOException) {
+            Log.w(TAG, "Network failure checking updates: ${e.message}")
+            NetworkResult.Error(
+                messageEn = "Could not reach GitHub. Please check your internet connection.",
+                messageBn = "গিটহাবে সংযোগ করা যায়নি। অনুগ্রহ করে আপনার ইন্টারনেট সংযোগ পরীক্ষা করুন।"
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error checking updates", e)
+            NetworkResult.Error(
+                messageEn = "Update check failed: ${e.localizedMessage ?: "Unknown error"}",
+                messageBn = "আপডেট পরীক্ষা ব্যর্থ হয়েছে: ${e.localizedMessage ?: "অজ্ঞাত ত্রুটি"}"
             )
         }
     }

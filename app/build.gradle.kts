@@ -80,6 +80,7 @@ dependencies {
 
     implementation(libs.androidx.security.crypto)
     implementation(libs.androidx.biometric)
+    implementation(libs.androidx.fragment.ktx)
 
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.moshi)

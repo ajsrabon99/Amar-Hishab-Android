@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
@@ -219,6 +220,98 @@ fun HomeScreen(
                             balance = summary.nagadBalance,
                             isBengali = isBengali
                         )
+                    }
+                }
+            }
+
+            // Net Cash Flow Health Card
+            item {
+                val netFlow = summary.totalIncome - summary.totalExpense
+                val savingsRate = if (summary.totalIncome > 0) {
+                    ((netFlow / summary.totalIncome) * 100).coerceIn(0.0, 100.0).toInt()
+                } else 0
+
+                androidx.compose.material3.Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (isBengali) "ক্যাশ ফ্লো স্ট্যাটাস" else "Cash Flow Overview",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            androidx.compose.material3.Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (netFlow >= 0) com.ajyra.amarhishab.ui.theme.IncomeGreen.copy(alpha = 0.15f)
+                                        else com.ajyra.amarhishab.ui.theme.ExpenseRed.copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    text = if (netFlow >= 0) {
+                                        if (isBengali) "+ উদ্ধৃত্ত" else "+ Surplus"
+                                    } else {
+                                        if (isBengali) "- ঘাটতি" else "- Deficit"
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (netFlow >= 0) com.ajyra.amarhishab.ui.theme.IncomeGreen else com.ajyra.amarhishab.ui.theme.ExpenseRed,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Column {
+                                Text(
+                                    text = if (isBengali) "নিট ক্যাশ ফ্লো" else "Net Savings",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = com.ajyra.amarhishab.utils.CurrencyFormatter.format(netFlow, isBengali),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (netFlow >= 0) com.ajyra.amarhishab.ui.theme.IncomeGreen else com.ajyra.amarhishab.ui.theme.ExpenseRed
+                                )
+                            }
+
+                            if (summary.totalIncome > 0) {
+                                Text(
+                                    text = if (isBengali) "সঞ্চয় হার: ${com.ajyra.amarhishab.utils.CurrencyFormatter.toBengaliDigits(savingsRate.toString())}%"
+                                           else "Savings Rate: $savingsRate%",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        if (summary.totalIncome > 0) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            androidx.compose.material3.LinearProgressIndicator(
+                                progress = { (savingsRate / 100f) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp)),
+                                color = com.ajyra.amarhishab.ui.theme.FintechPrimary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        }
                     }
                 }
             }

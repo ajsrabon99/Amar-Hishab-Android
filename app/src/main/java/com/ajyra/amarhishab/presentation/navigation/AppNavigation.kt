@@ -1,6 +1,7 @@
 package com.ajyra.amarhishab.presentation.navigation
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -81,7 +82,8 @@ fun AppNavigation(
             if (showBottomBar) {
                 NavigationBar(
                     modifier = Modifier.testTag("bottom_navigation_bar"),
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 4.dp
                 ) {
                     bottomNavItems.forEach { screen ->
                         val selected = currentRoute == screen.route
@@ -108,8 +110,18 @@ fun AppNavigation(
                                 }
                             },
                             label = {
-                                Text(if (isBengali) screen.titleBn else screen.titleEn)
-                            }
+                                Text(
+                                    text = if (isBengali) screen.titleBn else screen.titleEn,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            },
+                            colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                                selectedIconColor = com.ajyra.amarhishab.ui.theme.FintechPrimary,
+                                selectedTextColor = com.ajyra.amarhishab.ui.theme.FintechPrimary,
+                                indicatorColor = com.ajyra.amarhishab.ui.theme.FintechPrimary.copy(alpha = 0.15f),
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         )
                     }
                 }

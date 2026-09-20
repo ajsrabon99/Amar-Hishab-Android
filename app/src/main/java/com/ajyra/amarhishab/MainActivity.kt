@@ -1,8 +1,10 @@
 package com.ajyra.amarhishab
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -18,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.ajyra.amarhishab.data.local.EncryptedSessionManager
 import com.ajyra.amarhishab.presentation.navigation.AppNavigation
@@ -52,7 +55,19 @@ class MainActivity : FragmentActivity() {
 
             LaunchedEffect(Unit) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    val isAlreadyGranted = ContextCompat.checkSelfPermission(
+                        this@MainActivity,
+                        android.Manifest.permission.POST_NOTIFICATIONS
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (!isAlreadyGranted) {
+                        try {
+                            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                        } catch (e: Exception) {
+                            Log.e("MainActivity", "Failed to launch notification permission request", e)
+                        }
+                    } else {
+                        sessionManager.setNotificationsEnabled(true)
+                    }
                 }
             }
 

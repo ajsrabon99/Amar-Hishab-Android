@@ -86,6 +86,7 @@ import com.ajyra.amarhishab.model.AppUpdateInfo
 import com.ajyra.amarhishab.presentation.viewmodel.SettingsViewModel
 import com.ajyra.amarhishab.presentation.viewmodel.UpdateCheckState
 import com.ajyra.amarhishab.ui.theme.EmeraldPrimary
+import com.ajyra.amarhishab.ui.theme.FintechPrimary
 import com.ajyra.amarhishab.utils.BiometricHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -241,11 +242,11 @@ fun SettingsScreen(
             AlertDialog(
                 onDismissRequest = { viewModel.dismissUpdateDialog() },
                 icon = {
-                    Icon(imageVector = Icons.Default.SystemUpdate, contentDescription = null, tint = EmeraldPrimary)
+                    Icon(imageVector = Icons.Default.SystemUpdate, contentDescription = null, tint = FintechPrimary)
                 },
                 title = {
                     Text(
-                        text = if (isBengali) "নতুন আপডেট উপলব্ধ!" else "Update Available!",
+                        text = if (isBengali) "নতুন আপডেট উপলব্ধ! (v${info.latestVersion})" else "Update Available! (v${info.latestVersion})",
                         fontWeight = FontWeight.Bold
                     )
                 },
@@ -253,14 +254,36 @@ fun SettingsScreen(
                     Column {
                         Text(
                             text = if (isBengali)
-                                "আমার হিসাব v${info.latestVersion} সংস্করণ এখন পাওয়া যাচ্ছে।"
+                                "আমার হিসাব v${info.latestVersion} সংস্করণ প্রস্তুত হয়েছে।"
                             else
                                 "Amar Hishab v${info.latestVersion} is now available."
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(
+                                    text = if (isBengali) "পরিবর্তনসমূহ:" else "What's New:",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = info.releaseNotes,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = info.releaseNotes,
-                            style = MaterialTheme.typography.bodySmall,
+                            text = if (isBengali)
+                                "• ডাউনলোড সম্পন্ন হলে অ্যান্ড্রয়েড প্যাকেজ ইনস্টলার ইনস্টলেশন নিশ্চিত করতে বলবে।"
+                            else
+                                "• Android will prompt you to confirm download and package installation.",
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -273,12 +296,13 @@ fun SettingsScreen(
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(info.downloadUrl))
                                 context.startActivity(intent)
                             } catch (e: Exception) {
-                                // Ignore
+                                // Fallback
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                        colors = ButtonDefaults.buttonColors(containerColor = FintechPrimary),
+                        shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text(if (isBengali) "ডাউনলোড করুন" else "Download")
+                        Text(if (isBengali) "ডাউনলোড করুন (APK)" else "Download APK")
                     }
                 },
                 dismissButton = {
@@ -298,12 +322,20 @@ fun SettingsScreen(
                     )
                 },
                 text = {
-                    Text(
-                        text = if (isBengali)
-                            "আপনি আমার হিসাব এর সর্বশেষ সংস্করণ (v${state.versionName}) ব্যবহার করছেন।"
-                        else
-                            "You are currently using the latest version of Amar Hishab (v${state.versionName})."
-                    )
+                    Column {
+                        Text(
+                            text = if (isBengali)
+                                "আপনি আমার হিসাব এর সর্বশেষ সংস্করণ (v${state.versionName}) ব্যবহার করছেন।"
+                            else
+                                "You are currently running the latest version of Amar Hishab (v${state.versionName})."
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "GitHub Releases: github.com/ajsrabon/amar-hishab",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 },
                 confirmButton = {
                     TextButton(onClick = { viewModel.dismissUpdateDialog() }) {
@@ -552,6 +584,13 @@ fun SettingsScreen(
                             title = if (isBengali) "রিলিজ নোটস" else "Release Notes",
                             subtitle = if (isBengali) "ভার্সন ${BuildConfig.VERSION_NAME} এর নতুন ফিচারসমূহ" else "See what is new in version ${BuildConfig.VERSION_NAME}",
                             onClick = { showReleaseNotesDialog = true }
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                        SettingsOptionRow(
+                            icon = Icons.Default.NotificationsActive,
+                            title = if (isBengali) "আপডেট ডায়ালগ ও নোটিফিকেশন টেস্ট" else "Test Update Dialog & Flow",
+                            subtitle = if (isBengali) "ইন-অ্যাপ বিজ্ঞপ্তি ও ডাউনলোড ফ্লো পরীক্ষা করুন" else "Preview update dialog & trigger notification",
+                            onClick = { viewModel.testUpdateNotificationFlow() }
                         )
                     }
                 }

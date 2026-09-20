@@ -35,29 +35,31 @@ private val DarkColorScheme = darkColorScheme(
     onSurface = DarkOnSurface,
     surfaceVariant = DarkSurfaceVariant,
     onSurfaceVariant = DarkOnSurfaceVariant,
-    outline = DarkOutline
+    outline = DarkOutline,
+    outlineVariant = DarkOutlineVariant
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = EmeraldPrimary,
+    primary = FintechPrimary,
     onPrimary = EmeraldOnPrimary,
-    primaryContainer = EmeraldPrimaryContainer,
-    onPrimaryContainer = EmeraldOnPrimaryContainer,
+    primaryContainer = LightSurfaceVariant,
+    onPrimaryContainer = FintechPrimary,
     secondary = EmeraldSecondary,
     onSecondary = EmeraldOnSecondary,
-    secondaryContainer = EmeraldSecondaryContainer,
-    onSecondaryContainer = EmeraldOnSecondaryContainer,
+    secondaryContainer = LightSurfaceVariant,
+    onSecondaryContainer = LightOnSurface,
     tertiary = EmeraldTertiary,
     onTertiary = EmeraldOnTertiary,
-    tertiaryContainer = EmeraldTertiaryContainer,
-    onTertiaryContainer = EmeraldOnTertiaryContainer,
+    tertiaryContainer = LightSurfaceVariant,
+    onTertiaryContainer = EmeraldTertiary,
     background = LightBackground,
     onBackground = LightOnBackground,
     surface = LightSurface,
     onSurface = LightOnSurface,
     surfaceVariant = LightSurfaceVariant,
     onSurfaceVariant = LightOnSurfaceVariant,
-    outline = LightOutline
+    outline = LightOutline,
+    outlineVariant = LightOutlineVariant
 )
 
 @Composable
