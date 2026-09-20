@@ -70,8 +70,8 @@ object GitHubUpdateRepository {
                 // Repository exists or is being set up; no releases have been published yet
                 NetworkResult.Success(
                     AppUpdateInfo(
-                        latestVersion = "1.0.0",
-                        latestVersionCode = 1,
+                        latestVersion = "1.0.1",
+                        latestVersionCode = 2,
                         minSupportedVersion = "1.0.0",
                         updateRequired = false,
                         releaseNotes = "Connected to GitHub (github.com/$GITHUB_OWNER/$GITHUB_REPO). You are using the latest version of Amar Hishab.",
