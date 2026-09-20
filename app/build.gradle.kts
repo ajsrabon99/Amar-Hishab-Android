@@ -79,6 +79,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.androidx.security.crypto)
+    implementation(libs.androidx.biometric)
 
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.moshi)

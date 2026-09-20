@@ -1,6 +1,7 @@
 package com.ajyra.amarhishab.presentation.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +20,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -47,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import com.ajyra.amarhishab.R
 import com.ajyra.amarhishab.model.AccountType
 import com.ajyra.amarhishab.presentation.components.AccountBalancePill
+import com.ajyra.amarhishab.presentation.components.DashboardSkeleton
 import com.ajyra.amarhishab.presentation.components.EmptyStateView
 import com.ajyra.amarhishab.presentation.components.HeroBalanceCard
 import com.ajyra.amarhishab.presentation.components.TransactionRowItem
@@ -58,6 +63,9 @@ import com.ajyra.amarhishab.ui.theme.EmeraldPrimary
 fun HomeScreen(
     dashboardViewModel: DashboardViewModel,
     isBengali: Boolean,
+    unreadNotificationCount: Int = 0,
+    onNavigateToNotifications: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
     onNavigateToAddTransaction: (isExpense: Boolean) -> Unit,
     onNavigateToTransfer: () -> Unit,
     onNavigateToTransactions: () -> Unit
@@ -65,6 +73,7 @@ fun HomeScreen(
     val summary by dashboardViewModel.summary.collectAsState()
     val recentTransactions by dashboardViewModel.recentTransactions.collectAsState()
     val isRefreshing by dashboardViewModel.isRefreshing.collectAsState()
+    val isInitialLoading by dashboardViewModel.isInitialLoading.collectAsState()
     val syncMessage by dashboardViewModel.syncMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -107,23 +116,38 @@ fun HomeScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = { dashboardViewModel.refresh() },
-                        enabled = !isRefreshing,
-                        modifier = Modifier.testTag("dashboard_sync_button")
+                        onClick = onNavigateToNotifications,
+                        modifier = Modifier.testTag("dashboard_notifications_button")
                     ) {
-                        if (isRefreshing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = EmeraldPrimary
-                            )
-                        } else {
+                        BadgedBox(
+                            badge = {
+                                if (unreadNotificationCount > 0) {
+                                    Badge(
+                                        containerColor = EmeraldPrimary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    ) {
+                                        Text(text = if (unreadNotificationCount > 9) "9+" else unreadNotificationCount.toString())
+                                    }
+                                }
+                            }
+                        ) {
                             Icon(
-                                imageVector = Icons.Default.Sync,
-                                contentDescription = if (isBengali) "সিঙ্ক করুন" else "Sync",
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = if (isBengali) "বিজ্ঞপ্তি" else "Notifications",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                    }
+
+                    IconButton(
+                        onClick = onNavigateToSettings,
+                        modifier = Modifier.testTag("dashboard_settings_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = if (isBengali) "সেটিংস" else "Settings",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -133,14 +157,19 @@ fun HomeScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .testTag("home_screen_scroll"),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+        if (isInitialLoading) {
+            DashboardSkeleton(
+                modifier = Modifier.padding(innerPadding)
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .testTag("home_screen_scroll"),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
             // Hero Balance Card
             item {
                 HeroBalanceCard(
@@ -248,4 +277,5 @@ fun HomeScreen(
             }
         }
     }
+}
 }

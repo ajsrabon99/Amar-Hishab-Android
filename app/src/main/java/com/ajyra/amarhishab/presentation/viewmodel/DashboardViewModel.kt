@@ -34,6 +34,9 @@ class DashboardViewModel(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    private val _isInitialLoading = MutableStateFlow(true)
+    val isInitialLoading: StateFlow<Boolean> = _isInitialLoading.asStateFlow()
+
     private val _syncMessage = MutableStateFlow<String?>(null)
     val syncMessage: StateFlow<String?> = _syncMessage.asStateFlow()
 
@@ -54,6 +57,7 @@ class DashboardViewModel(
                 NetworkResult.Loading -> {}
             }
             _isRefreshing.value = false
+            _isInitialLoading.value = false
         }
     }
 

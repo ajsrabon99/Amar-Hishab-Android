@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.ajyra.amarhishab.data.local.AmarHishabDatabase
 import com.ajyra.amarhishab.data.local.EncryptedSessionManager
-import com.ajyra.amarhishab.data.repository.AuthRepository
 import com.ajyra.amarhishab.data.repository.FinanceRepository
 import com.ajyra.amarhishab.network.AmarHishabApiService
 import com.ajyra.amarhishab.network.ApiClient
@@ -28,16 +27,9 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
         FinanceRepository(database.transactionDao(), apiService)
     }
 
-    private val authRepository: AuthRepository by lazy {
-        AuthRepository(apiService, sessionManager, financeRepository)
-    }
-
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         return when {
-            modelClass.isAssignableFrom(AuthViewModel::class.java) -> {
-                AuthViewModel(authRepository) as T
-            }
             modelClass.isAssignableFrom(DashboardViewModel::class.java) -> {
                 DashboardViewModel(financeRepository) as T
             }
@@ -54,7 +46,13 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
                 ReportsViewModel(financeRepository) as T
             }
             modelClass.isAssignableFrom(ProfileViewModel::class.java) -> {
-                ProfileViewModel(authRepository, financeRepository, sessionManager) as T
+                ProfileViewModel(financeRepository, sessionManager) as T
+            }
+            modelClass.isAssignableFrom(SettingsViewModel::class.java) -> {
+                SettingsViewModel(sessionManager, com.ajyra.amarhishab.data.local.NotificationRepository.getInstance(context)) as T
+            }
+            modelClass.isAssignableFrom(NotificationViewModel::class.java) -> {
+                NotificationViewModel(com.ajyra.amarhishab.data.local.NotificationRepository.getInstance(context)) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

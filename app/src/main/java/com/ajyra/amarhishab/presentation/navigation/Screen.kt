@@ -13,11 +13,6 @@ sealed class Screen(
     val titleBn: String,
     val icon: ImageVector? = null
 ) {
-    object Login : Screen("login", "Login", "লগইন", null)
-    object Register : Screen("register", "Register", "রেজিস্ট্রেশন", null)
-    object VerifyEmail : Screen("verify_email?email={email}", "Verify Email", "ইমেইল ভেরিফাই", null) {
-        fun createRoute(email: String = ""): String = if (email.isNotBlank()) "verify_email?email=$email" else "verify_email"
-    }
     object Home : Screen("home", "Home", "হোম", Icons.Default.Home)
     object Transactions : Screen("transactions", "Transactions", "লেনদেন", Icons.Default.ReceiptLong)
     object Reports : Screen("reports", "Reports", "রিপোর্ট", Icons.Default.Assessment)
@@ -28,4 +23,6 @@ sealed class Screen(
     }
 
     object Transfer : Screen("transfer", "Transfer", "ট্রান্সফার", null)
+    object Settings : Screen("settings", "Settings", "সেটিংস", null)
+    object Notifications : Screen("notifications", "Notifications", "বিজ্ঞপ্তি", null)
 }

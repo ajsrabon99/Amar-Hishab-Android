@@ -4,7 +4,13 @@
     <color name="purple_200">#FFBB86FC</color>
     <color name="purple_500">#FF6200EE</color>
     <color name="purple_700">#FF3700B3</color>
-    <color name="splash_bg">#0F172A</color>
+    <color name="splash_bg">#101B3A</color>
+    <color name="brand_dark_navy">#171B24</color>
+    <color name="brand_deep_blue">#202A45</color>
+    <color name="brand_indigo">#354274</color>
+    <color name="brand_periwinkle">#5669B0</color>
+    <color name="brand_light_periwinkle">#7B8ED0</color>
+    <color name="brand_off_white">#F6F7FA</color>
     <color name="teal_200">#FF03DAC5</color>
     <color name="teal_700">#FF018786</color>
     <color name="white">#FFFFFFFF</color>
@@ -115,10 +121,40 @@
     <string name="welcome_back">Welcome Back</string>
     <string name="year_select">Select Year</string>
     <string name="yearly_summary">Yearly Summary</string>
+
+    <string name="notifications_title">Notifications</string>
+    <string name="notifications_empty">No notifications yet</string>
+    <string name="notifications_empty_sub">You are all caught up! Important reminders and system alerts will appear here.</string>
+    <string name="notifications_mark_read">Mark All as Read</string>
+    <string name="notifications_clear_all">Clear All</string>
+    <string name="profile_edit_title">Edit Profile</string>
+    <string name="profile_name_label">Full Name</string>
+    <string name="profile_email_label">Email Address</string>
+    <string name="profile_phone_label">Phone Number</string>
+    <string name="profile_photo_change">Change Photo</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_notifications">Notifications &amp; Reminders</string>
+    <string name="settings_security">Security &amp; Privacy</string>
+    <string name="settings_updates">App Updates</string>
+    <string name="settings_data">Data Management</string>
+    <string name="settings_about">About &amp; Developer</string>
+    <string name="developer_name">AJ SRABON</string>
+    <string name="developer_email">ashrafuzzamansrabon@gmail.com</string>
+    <string name="developer_role">Lead Android &amp; Backend Developer</string>
+    <string name="developer_facebook">Facebook Profile</string>
+    <string name="developer_instagram">Instagram Profile</string>
+    <string name="update_available_title">Update Available!</string>
+    <string name="update_up_to_date">App is up to date</string>
+    <string name="update_check_now">Check for Updates</string>
+    <string name="update_download">Download Update</string>
+    <string name="theme_mode_title">Choose Theme</string>
+
     <style name="Theme.AmarHishab" parent="android:Theme.DeviceDefault.NoActionBar"/>
     <style name="Theme.AmarHishab.Splash" parent="android:Theme.DeviceDefault.NoActionBar">
         <item name="android:windowBackground">@drawable/splash_background</item>
-        <item name="android:statusBarColor">#0F172A</item>
-        <item name="android:navigationBarColor">#0F172A</item>
+        <item name="android:statusBarColor">#171B24</item>
+        <item name="android:navigationBarColor">#171B24</item>
     </style>
 </resources>

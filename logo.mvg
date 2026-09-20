@@ -1,0 +1,69 @@
+
+viewbox 0 0 1024 1024
+push defs
+  linearGradient 'bgGrad' 0 0 1024 1024
+    stop-color '#2A4582' 0.0
+    stop-color '#1C2E5D' 0.5
+    stop-color '#0F1A3A' 1.0
+  endLinearGradient
+pop defs
+
+# Background rounded squircle
+fill 'url(#bgGrad)'
+stroke none
+roundrectangle 0,0 1024,1024 220,220
+
+# White glyph
+fill '#FFFFFF'
+stroke none
+
+# Left stem, Apex, and Upper body:
+# Outer left: from apex (505, 160) down to (175, 805)
+# Foot at bottom-left: curve to (220, 850) -> horizontal to (330, 850) -> curve to (365, 805)
+# Right stem: from (585, 245) down to (850, 805)
+# Foot at bottom-right: curve to (805, 850) -> horizontal to (695, 850) -> curve to (660, 805)
+
+path '
+M 465,160 
+C 430,160 405,185 385,230 
+L 175,770 
+C 150,815 175,850 225,850 
+L 330,850 
+C 365,850 385,825 405,775 
+L 485,570 
+C 500,530 525,510 560,510 
+L 620,510 
+C 645,510 660,525 660,550 
+L 660,575 
+L 785,575 
+L 620,225 
+C 605,195 580,160 525,160 
+Z'
+
+# Right leg (lower part from cut down to right foot):
+path '
+M 605,255 
+L 848,770 
+C 870,815 845,850 795,850 
+L 695,850 
+C 660,850 640,825 620,775 
+L 570,645 
+L 685,645 
+L 670,610 
+L 790,610 
+L 645,290 
+Z'
+
+# Inner arch bridge ribbon:
+path '
+M 390,780 
+C 390,670 440,585 515,585 
+C 575,585 615,630 620,700 
+L 620,780 
+C 610,810 595,825 570,825 
+C 545,825 535,805 535,770 
+L 535,710 
+C 530,680 510,660 485,660 
+C 455,660 440,685 440,730 
+L 440,780 
+Z'

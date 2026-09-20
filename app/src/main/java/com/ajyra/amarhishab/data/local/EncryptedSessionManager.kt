@@ -57,6 +57,9 @@ class EncryptedSessionManager(private val context: Context) {
     private val _themeMode = MutableStateFlow(getSavedTheme())
     val themeMode: StateFlow<String> = _themeMode.asStateFlow()
 
+    private val _currentUser = MutableStateFlow(getSavedUser())
+    val currentUser: StateFlow<User> = _currentUser.asStateFlow()
+
     fun hasValidSession(): Boolean {
         val prefs = securePrefs ?: return false
         val token = prefs.getString(KEY_AUTH_TOKEN, null)
@@ -106,6 +109,48 @@ class EncryptedSessionManager(private val context: Context) {
             avatarUrl = prefs.getString(KEY_USER_AVATAR, null),
             isVerified = true
         )
+    }
+
+    fun getSavedUser(): User {
+        val name = settingsPrefs.getString(KEY_USER_NAME, "AJ SRABON") ?: "AJ SRABON"
+        val email = settingsPrefs.getString(KEY_USER_EMAIL, "ashrafuzzamansrabon@gmail.com") ?: "ashrafuzzamansrabon@gmail.com"
+        val phone = settingsPrefs.getString(KEY_USER_PHONE, "+8801XXXXXXXXX") ?: "+8801XXXXXXXXX"
+        val avatarUri = settingsPrefs.getString(KEY_USER_AVATAR_URI, null)
+        return User(
+            id = "local_user_1",
+            displayName = name,
+            email = email,
+            phone = phone,
+            username = "ajsrabon",
+            avatarUri = avatarUri,
+            avatarUrl = null
+        )
+    }
+
+    fun saveUserProfile(name: String, email: String, phone: String, avatarUri: String? = null) {
+        val current = _currentUser.value
+        val updatedAvatarUri = avatarUri ?: current.avatarUri
+        settingsPrefs.edit().apply {
+            putString(KEY_USER_NAME, name)
+            putString(KEY_USER_EMAIL, email)
+            putString(KEY_USER_PHONE, phone)
+            if (updatedAvatarUri != null) {
+                putString(KEY_USER_AVATAR_URI, updatedAvatarUri)
+            }
+            apply()
+        }
+        _currentUser.value = current.copy(
+            displayName = name,
+            email = email,
+            phone = phone,
+            avatarUri = updatedAvatarUri
+        )
+    }
+
+    fun updateProfileAvatar(avatarUri: String) {
+        val current = _currentUser.value
+        settingsPrefs.edit().putString(KEY_USER_AVATAR_URI, avatarUri).apply()
+        _currentUser.value = current.copy(avatarUri = avatarUri)
     }
 
     fun clearSession() {
@@ -171,7 +216,9 @@ class EncryptedSessionManager(private val context: Context) {
         private const val KEY_USER_EMAIL = "user_email"
         private const val KEY_USER_USERNAME = "user_username"
         private const val KEY_USER_NAME = "user_name"
+        private const val KEY_USER_PHONE = "user_phone"
         private const val KEY_USER_AVATAR = "user_avatar"
+        private const val KEY_USER_AVATAR_URI = "user_avatar_uri"
         private const val KEY_LANGUAGE = "language"
         private const val KEY_THEME = "theme"
         private const val KEY_NOTIFICATIONS = "notifications"

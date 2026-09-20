@@ -1,20 +1,26 @@
 package com.ajyra.amarhishab.presentation.viewmodel
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ajyra.amarhishab.BuildConfig
 import com.ajyra.amarhishab.data.local.EncryptedSessionManager
 import com.ajyra.amarhishab.data.local.ReleaseNote
 import com.ajyra.amarhishab.data.local.ReleaseNotesRepository
-import com.ajyra.amarhishab.data.repository.AuthRepository
 import com.ajyra.amarhishab.data.repository.FinanceRepository
+import com.ajyra.amarhishab.data.repository.GitHubUpdateRepository
 import com.ajyra.amarhishab.model.AppUpdateInfo
 import com.ajyra.amarhishab.model.User
 import com.ajyra.amarhishab.network.NetworkResult
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 
 sealed class UpdateCheckState {
     object Idle : UpdateCheckState()
@@ -25,22 +31,14 @@ sealed class UpdateCheckState {
 }
 
 class ProfileViewModel(
-    private val authRepository: AuthRepository,
     private val financeRepository: FinanceRepository,
     private val sessionManager: EncryptedSessionManager
 ) : ViewModel() {
 
-    val isAuthenticated: StateFlow<Boolean> = sessionManager.isAuthenticated
-
-    val currentUser: User?
-        get() = sessionManager.getCurrentUser()
-
-    private val _user = MutableStateFlow(sessionManager.getCurrentUser())
-    val user: StateFlow<User?> = _user.asStateFlow()
-
     private val _snackbarMessage = MutableStateFlow<String?>(null)
     val snackbarMessage: StateFlow<String?> = _snackbarMessage.asStateFlow()
 
+    val currentUser: StateFlow<User> = sessionManager.currentUser
     val language: StateFlow<String> = sessionManager.language
     val themeMode: StateFlow<String> = sessionManager.themeMode
 
@@ -60,6 +58,31 @@ class ProfileViewModel(
     val updateCheckState: StateFlow<UpdateCheckState> = _updateCheckState.asStateFlow()
 
     val releaseNotes: ReleaseNote = ReleaseNotesRepository.getLatest()
+
+    fun updateProfile(name: String, email: String, phone: String) {
+        sessionManager.saveUserProfile(name, email, phone)
+        _snackbarMessage.value = "Profile updated successfully"
+    }
+
+    fun updateProfilePhoto(context: Context, imageUri: Uri) {
+        viewModelScope.launch {
+            try {
+                val savedUriString = withContext(Dispatchers.IO) {
+                    val avatarFile = File(context.filesDir, "user_avatar.jpg")
+                    context.contentResolver.openInputStream(imageUri)?.use { input ->
+                        FileOutputStream(avatarFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    avatarFile.absolutePath
+                }
+                sessionManager.updateProfileAvatar(savedUriString)
+                _snackbarMessage.value = "Profile photo updated"
+            } catch (e: Exception) {
+                _snackbarMessage.value = "Failed to update profile photo: ${e.message}"
+            }
+        }
+    }
 
     fun setLanguage(lang: String) {
         sessionManager.setLanguage(lang)
@@ -89,43 +112,13 @@ class ProfileViewModel(
         _appLock.value = enabled
     }
 
-    fun connectAccount(
-        identifier: String,
-        password: String,
-        onComplete: (Boolean, String?) -> Unit
-    ) {
-        viewModelScope.launch {
-            when (val result = authRepository.loginWithPassword(identifier, password)) {
-                is NetworkResult.Success -> {
-                    _user.value = result.data
-                    _snackbarMessage.value = "Account connected successfully!"
-                    onComplete(true, null)
-                }
-                is NetworkResult.Error -> {
-                    _snackbarMessage.value = result.messageEn
-                    onComplete(false, result.messageEn)
-                }
-                NetworkResult.Loading -> {}
-            }
-        }
-    }
-
-    fun disconnectAccount(onDisconnectComplete: () -> Unit = {}) {
-        viewModelScope.launch {
-            authRepository.logout()
-            _user.value = null
-            _snackbarMessage.value = "Website account disconnected and token revoked."
-            onDisconnectComplete()
-        }
-    }
-
     fun checkForUpdate(
         currentVersionCode: Int = BuildConfig.VERSION_CODE,
         currentVersionName: String = BuildConfig.VERSION_NAME
     ) {
         viewModelScope.launch {
             _updateCheckState.value = UpdateCheckState.Checking
-            when (val res = financeRepository.checkAppUpdate()) {
+            when (val res = GitHubUpdateRepository.checkLatestRelease()) {
                 is NetworkResult.Success -> {
                     val info = res.data
                     if (info.latestVersionCode > currentVersionCode) {
@@ -155,13 +148,5 @@ class ProfileViewModel(
 
     fun dismissUpdateDialog() {
         _updateCheckState.value = UpdateCheckState.Idle
-    }
-
-    fun logout(onLogoutComplete: () -> Unit = {}) {
-        viewModelScope.launch {
-            authRepository.logout()
-            _user.value = null
-            onLogoutComplete()
-        }
     }
 }
