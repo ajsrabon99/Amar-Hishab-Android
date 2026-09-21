@@ -63,8 +63,8 @@
     <string name="offline_cache_mode">লোকাল ক্যাশ / অফলাইন</string>
     <string name="payment_method">পেমেন্ট মাধ্যম / অ্যাকাউন্ট</string>
     <string name="profile_title">প্রোফাইল ও সেটিংস</string>
-    <string name="quick_expense">- খরচ</string>
-    <string name="quick_income">+ আয়</string>
+    <string name="quick_expense">খরচ</string>
+    <string name="quick_income">আয়</string>
     <string name="quick_transfer">ট্রান্সফার</string>
     <string name="received_via">যেভাবে পেয়েছেন</string>
     <string name="recent_transactions">সাম্প্রতিক লেনদেন</string>

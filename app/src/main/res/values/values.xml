@@ -77,8 +77,8 @@
     <string name="offline_cache_mode">Local Cache / Offline</string>
     <string name="payment_method">Payment Method / Account</string>
     <string name="profile_title">Profile &amp; Settings</string>
-    <string name="quick_expense">- Expense</string>
-    <string name="quick_income">+ Income</string>
+    <string name="quick_expense">Expense</string>
+    <string name="quick_income">Income</string>
     <string name="quick_transfer">Transfer</string>
     <string name="received_via">Received Via</string>
     <string name="recent_transactions">Recent Transactions</string>

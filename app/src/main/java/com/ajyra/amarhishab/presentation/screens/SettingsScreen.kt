@@ -236,26 +236,51 @@ fun SettingsScreen(
 
     // Update Result Dialog
     when (val state = updateCheckState) {
+        is UpdateCheckState.Checking -> {
+            AlertDialog(
+                onDismissRequest = { /* Loading state */ },
+                confirmButton = {},
+                text = {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.5.dp,
+                            color = FintechPrimary
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = if (isBengali) "আপডেট চেক করা হচ্ছে..." else "Checking for updates...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                },
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
         is UpdateCheckState.UpdateAvailable -> {
             val info = state.info
             AlertDialog(
                 onDismissRequest = { viewModel.dismissUpdateDialog() },
-                icon = {
-                    Icon(imageVector = Icons.Default.SystemUpdate, contentDescription = null, tint = FintechPrimary)
-                },
                 title = {
                     Text(
-                        text = if (isBengali) "নতুন আপডেট উপলব্ধ! (v${info.latestVersion})" else "Update Available! (v${info.latestVersion})",
+                        text = if (isBengali) "নতুন আপডেট উপলব্ধ" else "New update available",
                         fontWeight = FontWeight.Bold
                     )
                 },
                 text = {
                     Column {
                         Text(
-                            text = if (isBengali)
-                                "আমার হিসাব v${info.latestVersion} সংস্করণ প্রস্তুত হয়েছে।"
-                            else
-                                "Amar Hishab v${info.latestVersion} is now available."
+                            text = "Amar Hishab v${info.latestVersion}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = FintechPrimary
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         Card(
@@ -264,7 +289,7 @@ fun SettingsScreen(
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
                                 Text(
-                                    text = if (isBengali) "পরিবর্তনসমূহ:" else "What's New:",
+                                    text = if (isBengali) "পরিবর্তনসমূহ:" else "What's new:",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -276,15 +301,6 @@ fun SettingsScreen(
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = if (isBengali)
-                                "• ডাউনলোড সম্পন্ন হলে অ্যান্ড্রয়েড প্যাকেজ ইনস্টলার ইনস্টলেশন নিশ্চিত করতে বলবে।"
-                            else
-                                "• Android will prompt you to confirm download and package installation.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 },
                 confirmButton = {
@@ -301,12 +317,12 @@ fun SettingsScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = FintechPrimary),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text(if (isBengali) "ডাউনলোড করুন (APK)" else "Download APK")
+                        Text(if (isBengali) "এখনই আপডেট করুন" else "Update Now")
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { viewModel.dismissUpdateDialog() }) {
-                        Text(if (isBengali) "পরে" else "Later")
+                        Text(if (isBengali) "এখন নয়" else "Not Now")
                     }
                 }
             )
@@ -316,25 +332,17 @@ fun SettingsScreen(
                 onDismissRequest = { viewModel.dismissUpdateDialog() },
                 title = {
                     Text(
-                        text = if (isBengali) "অ্যাপ আপ-টু-ডেট" else "App is Up to Date",
+                        text = if (isBengali) "অ্যাপ আপ-টু-ডেট" else "You're up to date",
                         fontWeight = FontWeight.Bold
                     )
                 },
                 text = {
-                    Column {
-                        Text(
-                            text = if (isBengali)
-                                "আপনি আমার হিসাব এর সর্বশেষ সংস্করণ (v${state.versionName}) ব্যবহার করছেন।"
-                            else
-                                "You are currently running the latest version of Amar Hishab (v${state.versionName})."
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "GitHub Releases: github.com/ajsrabon/amar-hishab",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = if (isBengali)
+                            "আপনি আমার হিসাব এর সর্বশেষ সংস্করণ ব্যবহার করছেন।"
+                        else
+                            "You're using the latest version of Amar Hishab."
+                    )
                 },
                 confirmButton = {
                     TextButton(onClick = { viewModel.dismissUpdateDialog() }) {
@@ -348,7 +356,7 @@ fun SettingsScreen(
                 onDismissRequest = { viewModel.dismissUpdateDialog() },
                 title = {
                     Text(
-                        text = if (isBengali) "আপডেট চেক ব্যর্থ হয়েছে" else "Update Check Failed",
+                        text = if (isBengali) "আপডেট চেক করা সম্ভব হয়নি" else "Couldn't check for updates",
                         fontWeight = FontWeight.Bold
                     )
                 },

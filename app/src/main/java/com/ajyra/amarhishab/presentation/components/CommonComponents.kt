@@ -497,7 +497,7 @@ fun HeroBalanceCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     QuickActionPill(
-                        label = if (isBengali) "+ আয়" else "+ Income",
+                        label = if (isBengali) "আয়" else "Income",
                         icon = Icons.Default.Add,
                         onClick = onIncomeClick,
                         modifier = Modifier.weight(1f),
@@ -505,7 +505,7 @@ fun HeroBalanceCard(
                         accentColor = IncomeGreen
                     )
                     QuickActionPill(
-                        label = if (isBengali) "- ব্যয়" else "- Expense",
+                        label = if (isBengali) "ব্যয়" else "Expense",
                         icon = Icons.Default.Remove,
                         onClick = onExpenseClick,
                         modifier = Modifier.weight(1f),
