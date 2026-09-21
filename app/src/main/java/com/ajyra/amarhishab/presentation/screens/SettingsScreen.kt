@@ -54,8 +54,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import com.ajyra.amarhishab.presentation.components.AmarSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -470,10 +469,9 @@ fun SettingsScreen(
                             title = if (isBengali) "সব বিজ্ঞপ্তি" else "Push Notifications",
                             subtitle = if (isBengali) "সিস্টেম ও আপডেট বিজ্ঞপ্তি পান" else "Allow in-app and system alerts",
                             trailingContent = {
-                                Switch(
+                                AmarSwitch(
                                     checked = notificationsEnabled,
-                                    onCheckedChange = { viewModel.toggleNotifications(it) },
-                                    colors = SwitchDefaults.colors(checkedThumbColor = EmeraldPrimary)
+                                    onCheckedChange = { viewModel.toggleNotifications(it) }
                                 )
                             }
                         )
@@ -483,10 +481,9 @@ fun SettingsScreen(
                             title = if (isBengali) "দৈনিক খরচ এন্ট্রি রিমাইন্ডার" else "Daily Expense Reminder",
                             subtitle = if (isBengali) "প্রতিদিন রাত ৯টায় রিমাইন্ডার" else "Daily reminder at 9:00 PM",
                             trailingContent = {
-                                Switch(
+                                AmarSwitch(
                                     checked = dailyReminder,
-                                    onCheckedChange = { viewModel.toggleExpenseReminders(it) },
-                                    colors = SwitchDefaults.colors(checkedThumbColor = EmeraldPrimary)
+                                    onCheckedChange = { viewModel.toggleExpenseReminders(it) }
                                 )
                             }
                         )
@@ -496,10 +493,9 @@ fun SettingsScreen(
                             title = if (isBengali) "মাসিক সারসংক্ষেপ রিপোর্ট" else "Monthly Summary Report",
                             subtitle = if (isBengali) "মাসের শুরুতে আগের মাসের হিসাব" else "Monthly financial recap",
                             trailingContent = {
-                                Switch(
+                                AmarSwitch(
                                     checked = monthlyRecap,
-                                    onCheckedChange = { viewModel.toggleMonthlySummary(it) },
-                                    colors = SwitchDefaults.colors(checkedThumbColor = EmeraldPrimary)
+                                    onCheckedChange = { viewModel.toggleMonthlySummary(it) }
                                 )
                             }
                         )
@@ -521,7 +517,7 @@ fun SettingsScreen(
                         title = if (isBengali) "বায়োমেট্রিক অ্যাপ লক" else "Biometric App Lock",
                         subtitle = if (isBengali) "অ্যাপ খোলার সময় ফিঙ্গারপ্রিন্ট বা ডিভাইস লক চাইবে" else "Require fingerprint or PIN to open app",
                         trailingContent = {
-                            Switch(
+                            AmarSwitch(
                                 checked = biometricLock,
                                 onCheckedChange = { enable ->
                                     if (enable) {
@@ -546,8 +542,7 @@ fun SettingsScreen(
                                     } else {
                                         viewModel.toggleAppLock(false)
                                     }
-                                },
-                                colors = SwitchDefaults.colors(checkedThumbColor = EmeraldPrimary)
+                                }
                             )
                         }
                     )
