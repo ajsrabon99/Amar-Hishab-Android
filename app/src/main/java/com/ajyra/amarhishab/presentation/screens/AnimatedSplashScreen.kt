@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -82,20 +83,27 @@ fun AnimatedSplashScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Box(
+            Surface(
                 modifier = Modifier
-                    .size(100.dp)
+                    .size(96.dp)
                     .scale(scale.value)
-                    .alpha(alpha.value)
-                    .clip(CircleShape)
-                    .background(BrandDeepBlue.copy(alpha = 0.6f)),
-                contentAlignment = Alignment.Center
+                    .alpha(alpha.value),
+                shape = CircleShape,
+                color = androidx.compose.ui.graphics.Color(0xFFF3F5F4),
+                shadowElevation = 8.dp
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.amar_hishab_icon),
-                    contentDescription = "Amar Hishab Official Logo",
-                    modifier = Modifier.size(76.dp)
-                )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.amar_hishab_icon),
+                        contentDescription = "Amar Hishab Official Logo",
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(CircleShape)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(20.dp))

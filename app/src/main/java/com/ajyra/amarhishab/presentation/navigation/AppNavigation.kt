@@ -9,6 +9,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -28,11 +29,15 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.ajyra.amarhishab.presentation.screens.AddTransactionScreen
+import com.ajyra.amarhishab.presentation.screens.CustomCategoriesScreen
 import com.ajyra.amarhishab.presentation.screens.HomeScreen
+import com.ajyra.amarhishab.presentation.screens.ImportDataScreen
 import com.ajyra.amarhishab.presentation.screens.NotificationScreen
 import com.ajyra.amarhishab.presentation.screens.ProfileScreen
 import com.ajyra.amarhishab.presentation.screens.ReportsScreen
+import com.ajyra.amarhishab.presentation.screens.SavingsGoalsScreen
 import com.ajyra.amarhishab.presentation.screens.SettingsScreen
+import com.ajyra.amarhishab.presentation.screens.StatementScreen
 import com.ajyra.amarhishab.presentation.screens.TransactionsScreen
 import com.ajyra.amarhishab.presentation.screens.TransferScreen
 import com.ajyra.amarhishab.presentation.viewmodel.AddTransactionViewModel
@@ -40,6 +45,7 @@ import com.ajyra.amarhishab.presentation.viewmodel.DashboardViewModel
 import com.ajyra.amarhishab.presentation.viewmodel.NotificationViewModel
 import com.ajyra.amarhishab.presentation.viewmodel.ProfileViewModel
 import com.ajyra.amarhishab.presentation.viewmodel.ReportsViewModel
+import com.ajyra.amarhishab.presentation.viewmodel.SavingsGoalsViewModel
 import com.ajyra.amarhishab.presentation.viewmodel.SettingsViewModel
 import com.ajyra.amarhishab.presentation.viewmodel.TransactionsViewModel
 import com.ajyra.amarhishab.presentation.viewmodel.TransferViewModel
@@ -47,10 +53,17 @@ import com.ajyra.amarhishab.presentation.viewmodel.ViewModelFactory
 
 @Composable
 fun AppNavigation(
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    initialDestination: String? = null
 ) {
     val context = LocalContext.current
     val factory = remember { ViewModelFactory(context) }
+
+    LaunchedEffect(initialDestination) {
+        if (initialDestination != null && initialDestination != Screen.Home.route) {
+            navController.navigate(initialDestination)
+        }
+    }
 
     val dashboardViewModel: DashboardViewModel = viewModel(factory = factory)
     val transactionsViewModel: TransactionsViewModel = viewModel(factory = factory)
@@ -60,6 +73,7 @@ fun AppNavigation(
     val profileViewModel: ProfileViewModel = viewModel(factory = factory)
     val settingsViewModel: SettingsViewModel = viewModel(factory = factory)
     val notificationViewModel: NotificationViewModel = viewModel(factory = factory)
+    val savingsGoalsViewModel: SavingsGoalsViewModel = viewModel(factory = factory)
 
     val language by profileViewModel.language.collectAsState()
     val isBengali = language == "bn"
@@ -156,6 +170,21 @@ fun AppNavigation(
                     onNavigateToSettings = {
                         navController.navigate(Screen.Settings.route)
                     },
+                    onNavigateToProfile = {
+                        navController.navigate(Screen.Profile.route)
+                    },
+                    onNavigateToStatement = {
+                        navController.navigate(Screen.Statement.route)
+                    },
+                    onNavigateToImportData = {
+                        navController.navigate(Screen.ImportData.route)
+                    },
+                    onNavigateToCustomCategories = {
+                        navController.navigate(Screen.CustomCategories.route)
+                    },
+                    onNavigateToSavingsGoals = {
+                        navController.navigate(Screen.SavingsGoals.route)
+                    },
                     onNavigateToAddTransaction = { isExpense ->
                         navController.navigate(Screen.AddTransaction.createRoute(isExpense))
                     },
@@ -195,7 +224,16 @@ fun AppNavigation(
                 SettingsScreen(
                     viewModel = settingsViewModel,
                     isBengali = isBengali,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToStatement = {
+                        navController.navigate(Screen.Statement.route)
+                    },
+                    onNavigateToImportData = {
+                        navController.navigate(Screen.ImportData.route)
+                    },
+                    onNavigateToCustomCategories = {
+                        navController.navigate(Screen.CustomCategories.route)
+                    }
                 )
             }
             composable(Screen.Notifications.route) {
@@ -220,6 +258,35 @@ fun AppNavigation(
             composable(Screen.Transfer.route) {
                 TransferScreen(
                     viewModel = transferViewModel,
+                    isBengali = isBengali,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Statement.route) {
+                StatementScreen(
+                    transactionsViewModel = transactionsViewModel,
+                    isBengali = isBengali,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.ImportData.route) {
+                ImportDataScreen(
+                    isBengali = isBengali,
+                    onNavigateBack = { navController.popBackStack() },
+                    onImportSuccess = {
+                        dashboardViewModel.refresh()
+                    }
+                )
+            }
+            composable(Screen.CustomCategories.route) {
+                CustomCategoriesScreen(
+                    isBengali = isBengali,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.SavingsGoals.route) {
+                SavingsGoalsScreen(
+                    viewModel = savingsGoalsViewModel,
                     isBengali = isBengali,
                     onNavigateBack = { navController.popBackStack() }
                 )

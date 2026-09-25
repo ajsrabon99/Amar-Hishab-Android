@@ -68,7 +68,8 @@ class ProfileViewModel(
         viewModelScope.launch {
             try {
                 val savedUriString = withContext(Dispatchers.IO) {
-                    val avatarFile = File(context.filesDir, "user_avatar.jpg")
+                    val avatarFile = File(context.filesDir, "user_avatar_${System.currentTimeMillis()}.jpg")
+                    context.filesDir.listFiles { _, name -> name.startsWith("user_avatar") }?.forEach { it.delete() }
                     context.contentResolver.openInputStream(imageUri)?.use { input ->
                         FileOutputStream(avatarFile).use { output ->
                             input.copyTo(output)
@@ -81,6 +82,16 @@ class ProfileViewModel(
             } catch (e: Exception) {
                 _snackbarMessage.value = "Failed to update profile photo: ${e.message}"
             }
+        }
+    }
+
+    fun removeProfilePhoto(context: Context) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                context.filesDir.listFiles { _, name -> name.startsWith("user_avatar") }?.forEach { it.delete() }
+            }
+            sessionManager.updateProfileAvatar(null)
+            _snackbarMessage.value = "Profile photo removed"
         }
     }
 

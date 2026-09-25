@@ -21,6 +21,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE syncStatus != 'PENDING_DELETE' ORDER BY date DESC, createdAt DESC")
     fun getAllTransactions(): Flow<List<TransactionEntity>>
 
+    @Query("SELECT * FROM transactions WHERE syncStatus != 'PENDING_DELETE' ORDER BY date DESC, createdAt DESC")
+    suspend fun getAllTransactionsList(): List<TransactionEntity>
+
     @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
     suspend fun getTransactionById(id: String): TransactionEntity?
 

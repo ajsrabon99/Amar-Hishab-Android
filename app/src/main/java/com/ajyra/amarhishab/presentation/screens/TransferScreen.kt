@@ -1,6 +1,8 @@
 package com.ajyra.amarhishab.presentation.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,8 +22,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.SyncAlt
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -35,6 +40,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -57,12 +63,11 @@ import androidx.compose.ui.unit.sp
 import com.ajyra.amarhishab.model.AccountType
 import com.ajyra.amarhishab.presentation.viewmodel.SaveState
 import com.ajyra.amarhishab.presentation.viewmodel.TransferViewModel
-import com.ajyra.amarhishab.ui.theme.AccountBkash
-import com.ajyra.amarhishab.ui.theme.AccountNagad
 import com.ajyra.amarhishab.ui.theme.EmeraldPrimary
 import com.ajyra.amarhishab.ui.theme.ExpenseRed
 import com.ajyra.amarhishab.ui.theme.IncomeGreen
 import com.ajyra.amarhishab.ui.theme.TransferBlue
+import com.ajyra.amarhishab.utils.CurrencyFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,10 +76,35 @@ fun TransferScreen(
     isBengali: Boolean,
     onNavigateBack: () -> Unit
 ) {
+    val summary by viewModel.summary.collectAsState()
+
+    fun getAccountBalance(acc: AccountType): Double = when (acc) {
+        AccountType.CASH -> summary.cashBalance
+        AccountType.BKASH -> summary.bkashBalance
+        AccountType.NAGAD -> summary.nagadBalance
+        AccountType.BANK -> summary.bankBalance
+    }
+
     var fromAccount by remember { mutableStateOf(AccountType.BANK.code) }
     var toAccount by remember { mutableStateOf(AccountType.BKASH.code) }
     var amountText by remember { mutableStateOf("") }
     var descriptionText by remember { mutableStateOf("") }
+
+    // Auto-select valid fromAccount if default has 0 balance
+    LaunchedEffect(summary) {
+        val curBalance = getAccountBalance(AccountType.fromCode(fromAccount))
+        if (curBalance <= 0.0) {
+            val valid = AccountType.entries.firstOrNull { getAccountBalance(it) > 0.0 }
+            if (valid != null) {
+                fromAccount = valid.code
+            }
+        }
+    }
+
+    val currentFromBalance = getAccountBalance(AccountType.fromCode(fromAccount))
+    val enteredAmount = amountText.toDoubleOrNull()
+    val isAmountOver = enteredAmount != null && enteredAmount > currentFromBalance
+    val isZeroBalance = currentFromBalance <= 0.0
 
     val saveState by viewModel.saveState.collectAsState()
 
@@ -124,31 +154,58 @@ fun TransferScreen(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
                 ) {
-                    Text(
-                        text = if (isBengali) err.messageBn else err.messageEn,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(12.dp),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = if (isBengali) err.messageBn else err.messageEn,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
             }
 
             // Transfer Direction Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // From Account
-                    Text(
-                        text = if (isBengali) "উৎস অ্যাকাউন্ট (From)" else "From Account",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    // From Account Label
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isBengali) "উৎস অ্যাকাউন্ট (From)" else "From Account",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (isBengali) "ব্যালেন্স: ${CurrencyFormatter.format(currentFromBalance, true)}"
+                                   else "Balance: ${CurrencyFormatter.format(currentFromBalance, false)}",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isZeroBalance) ExpenseRed else IncomeGreen
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // From Account Selection with Zero Balance Visual Indication
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -156,17 +213,85 @@ fun TransferScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         AccountType.entries.forEach { acc ->
+                            val balance = getAccountBalance(acc)
+                            val isAccZero = balance <= 0.0
                             val isSelected = fromAccount.equals(acc.code, ignoreCase = true)
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { fromAccount = acc.code },
-                                label = { Text(if (isBengali) acc.displayNameBn else acc.displayNameEn) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = TransferBlue,
-                                    selectedLabelColor = Color.White
-                                )
-                            )
+
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = when {
+                                    isAccZero -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+                                    isSelected -> TransferBlue
+                                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                },
+                                border = BorderStroke(
+                                    1.dp,
+                                    when {
+                                        isAccZero -> ExpenseRed.copy(alpha = 0.5f)
+                                        isSelected -> TransferBlue
+                                        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                                    }
+                                ),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable(enabled = !isAccZero) {
+                                        fromAccount = acc.code
+                                    }
+                                    .testTag("transfer_from_${acc.code}")
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (isAccZero) {
+                                            Icon(
+                                                imageVector = Icons.Default.Block,
+                                                contentDescription = null,
+                                                tint = ExpenseRed,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                        }
+                                        Text(
+                                            text = if (isBengali) acc.displayNameBn else acc.displayNameEn,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = when {
+                                                isAccZero -> ExpenseRed
+                                                isSelected -> Color.White
+                                                else -> MaterialTheme.colorScheme.onSurface
+                                            }
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Text(
+                                        text = if (isAccZero) {
+                                            if (isBengali) "৳০ (অনুপলব্ধ)" else "৳0 (Unavailable)"
+                                        } else {
+                                            CurrencyFormatter.format(balance, isBengali)
+                                        },
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = when {
+                                            isAccZero -> ExpenseRed
+                                            isSelected -> Color.White.copy(alpha = 0.85f)
+                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
+                                    )
+                                }
+                            }
                         }
+                    }
+
+                    if (isZeroBalance) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (isBengali) "সতর্কতা: নির্বাচিত অ্যাকাউন্টে ব্যালেন্স ৳০। অনুগ্রহ করে অন্য সোর্স অ্যাকাউন্ট নির্বাচন করুন।"
+                                   else "Notice: Selected account has ৳0 balance. Please choose another source account.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ExpenseRed,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -199,10 +324,10 @@ fun TransferScreen(
                     Text(
                         text = if (isBengali) "গন্তব্য অ্যাকাউন্ট (To)" else "To Account",
                         style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -211,14 +336,30 @@ fun TransferScreen(
                     ) {
                         AccountType.entries.forEach { acc ->
                             val isSelected = toAccount.equals(acc.code, ignoreCase = true)
+                            val isSameAsFrom = fromAccount.equals(acc.code, ignoreCase = true)
+                            val balance = getAccountBalance(acc)
                             FilterChip(
                                 selected = isSelected,
-                                onClick = { toAccount = acc.code },
-                                label = { Text(if (isBengali) acc.displayNameBn else acc.displayNameEn) },
+                                onClick = {
+                                    if (!isSameAsFrom) {
+                                        toAccount = acc.code
+                                    }
+                                },
+                                label = {
+                                    Column {
+                                        Text(if (isBengali) acc.displayNameBn else acc.displayNameEn)
+                                        Text(
+                                            text = CurrencyFormatter.format(balance, isBengali),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = EmeraldPrimary,
                                     selectedLabelColor = Color.White
-                                )
+                                ),
+                                enabled = !isSameAsFrom
                             )
                         }
                     }
@@ -228,16 +369,29 @@ fun TransferScreen(
             // Amount Input Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = if (isBengali) "ট্রান্সফারের পরিমাণ" else "Transfer Amount",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = if (isBengali) "ট্রান্সফারের পরিমাণ" else "Transfer Amount",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (isBengali) "সর্বোচ্চ: ${CurrencyFormatter.format(currentFromBalance, true)}"
+                                   else "Max: ${CurrencyFormatter.format(currentFromBalance, false)}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (isAmountOver) ExpenseRed else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = amountText,
@@ -255,18 +409,31 @@ fun TransferScreen(
                                 modifier = Modifier.padding(horizontal = 8.dp)
                             )
                         },
+                        isError = isAmountOver,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp)
                     )
+
+                    if (isAmountOver) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = if (isBengali) "অপর্যাপ্ত ব্যালেন্স! আপনার নির্বাচিত অ্যাকাউন্টে আছে ${CurrencyFormatter.format(currentFromBalance, true)}।"
+                                   else "Insufficient balance! Available in account: ${CurrencyFormatter.format(currentFromBalance, false)}.",
+                            color = ExpenseRed,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
 
             // Description / Note
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     OutlinedTextField(
@@ -286,6 +453,8 @@ fun TransferScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            val isTransferAllowed = !isZeroBalance && !isAmountOver && (enteredAmount ?: 0.0) > 0.0 && !fromAccount.equals(toAccount, ignoreCase = true)
+
             // Submit Button
             Button(
                 onClick = {
@@ -300,9 +469,12 @@ fun TransferScreen(
                     .fillMaxWidth()
                     .height(52.dp)
                     .testTag("submit_transfer_button"),
-                enabled = saveState !is SaveState.Saving,
+                enabled = isTransferAllowed && saveState !is SaveState.Saving,
                 shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = TransferBlue)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = TransferBlue,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
             ) {
                 if (saveState is SaveState.Saving) {
                     CircularProgressIndicator(
@@ -323,3 +495,4 @@ fun TransferScreen(
         }
     }
 }
+

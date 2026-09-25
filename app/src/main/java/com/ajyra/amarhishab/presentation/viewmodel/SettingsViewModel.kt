@@ -110,33 +110,6 @@ class SettingsViewModel(
         }
     }
 
-    fun testUpdateNotificationFlow() {
-        viewModelScope.launch {
-            val testInfo = AppUpdateInfo(
-                latestVersion = "1.1.0",
-                latestVersionCode = 2,
-                minSupportedVersion = "1.0.0",
-                updateRequired = false,
-                releaseNotes = "• UI/UX Premium Redesign with flagship Dark Mode\n• Enhanced Hero Balance Card & Quick Actions\n• Animated Buttons & refined financial charts\n• Verified GitHub Release update pipeline with Android package installer confirmation",
-                downloadUrl = "https://github.com/ajsrabon/amar-hishab/releases/download/v1.1.0/Amar-Hishab-test5-v1.0.0.apk"
-            )
-            _updateCheckState.value = UpdateCheckState.UpdateAvailable(testInfo)
-            notificationRepository.addNotification(
-                AppNotification(
-                    id = "update_preview_${System.currentTimeMillis()}",
-                    titleEn = "Update Available: v1.1.0",
-                    titleBn = "নতুন আপডেট পাওয়া গেছে: v১.১.০",
-                    messageEn = "Amar Hishab v1.1.0 is ready. Tap to download APK and install.",
-                    messageBn = "আমার হিসাব এর নতুন সংস্করণ ১.১.০ প্রস্তুত। ডাউনলোড করে ইনস্টল করতে ট্যাপ করুন।",
-                    type = NotificationType.UPDATE,
-                    isRead = false,
-                    actionUrl = testInfo.downloadUrl
-                ),
-                showSystemNotification = true
-            )
-        }
-    }
-
     fun dismissUpdateDialog() {
         _updateCheckState.value = UpdateCheckState.Idle
     }

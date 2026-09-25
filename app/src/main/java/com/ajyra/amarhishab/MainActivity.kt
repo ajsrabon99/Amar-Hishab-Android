@@ -53,6 +53,12 @@ class MainActivity : FragmentActivity() {
                 sessionManager.setNotificationsEnabled(isGranted)
             }
 
+            var pendingRoute by remember {
+                val dest = intent?.getStringExtra("destination")
+                val dataStr = intent?.data?.toString() ?: ""
+                mutableStateOf(if (dest == "settings" || dataStr.contains("settings")) com.ajyra.amarhishab.presentation.navigation.Screen.Settings.route else null)
+            }
+
             LaunchedEffect(Unit) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     val isAlreadyGranted = ContextCompat.checkSelfPermission(
@@ -69,6 +75,9 @@ class MainActivity : FragmentActivity() {
                         sessionManager.setNotificationsEnabled(true)
                     }
                 }
+                // Schedule/prompt official Telegram community notification once for user
+                com.ajyra.amarhishab.data.local.NotificationRepository.getInstance(applicationContext)
+                    .triggerTelegramCommunityNotificationOnce()
             }
 
             fun triggerBiometricUnlock() {
@@ -119,7 +128,7 @@ class MainActivity : FragmentActivity() {
                                 )
                             }
                             else -> {
-                                AppNavigation()
+                                AppNavigation(initialDestination = pendingRoute)
                             }
                         }
                     }

@@ -24,14 +24,17 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
     }
 
     private val financeRepository: FinanceRepository by lazy {
-        FinanceRepository(database.transactionDao(), apiService)
+        FinanceRepository(database.transactionDao(), apiService, database.savingsGoalDao())
     }
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         return when {
             modelClass.isAssignableFrom(DashboardViewModel::class.java) -> {
-                DashboardViewModel(financeRepository) as T
+                DashboardViewModel(financeRepository, sessionManager) as T
+            }
+            modelClass.isAssignableFrom(SavingsGoalsViewModel::class.java) -> {
+                SavingsGoalsViewModel(financeRepository) as T
             }
             modelClass.isAssignableFrom(TransactionsViewModel::class.java) -> {
                 TransactionsViewModel(financeRepository) as T

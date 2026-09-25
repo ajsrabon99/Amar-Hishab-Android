@@ -19,8 +19,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -36,7 +38,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -49,11 +54,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ajyra.amarhishab.data.local.CategoryManager
 import com.ajyra.amarhishab.model.AccountType
 import com.ajyra.amarhishab.model.DefaultCategories
 import com.ajyra.amarhishab.model.TransactionType
@@ -72,6 +79,10 @@ fun AddTransactionScreen(
     isBengali: Boolean,
     onNavigateBack: () -> Unit
 ) {
+    val context = LocalContext.current
+    val categoryManager = remember { CategoryManager.getInstance(context) }
+    val customCategories by categoryManager.customCategories.collectAsState()
+
     var isExpense by remember { mutableStateOf(initialIsExpense) }
     var amountText by remember { mutableStateOf("") }
     var selectedCategory by remember {
@@ -83,6 +94,7 @@ fun AddTransactionScreen(
     var selectedAccount by remember { mutableStateOf(AccountType.CASH.code) }
     var dateText by remember { mutableStateOf(DateUtils.todayDateString()) }
     var descriptionText by remember { mutableStateOf("") }
+    var showAddCategoryDialog by remember { mutableStateOf(false) }
 
     val saveState by viewModel.saveState.collectAsState()
 
@@ -93,7 +105,11 @@ fun AddTransactionScreen(
         }
     }
 
-    val activeCategories = if (isExpense) DefaultCategories.expenseCategories else DefaultCategories.incomeCategories
+    // Combine default and custom categories for the currently active transaction type
+    val currentType = if (isExpense) TransactionType.EXPENSE else TransactionType.INCOME
+    val defaultList = if (isExpense) DefaultCategories.expenseCategories else DefaultCategories.incomeCategories
+    val customList = customCategories.filter { it.type == currentType }
+    val activeCategories = defaultList + customList
 
     Scaffold(
         topBar = {
@@ -137,7 +153,8 @@ fun AddTransactionScreen(
                     selected = isExpense,
                     onClick = {
                         isExpense = true
-                        selectedCategory = DefaultCategories.expenseCategories.first().id
+                        val expDefault = DefaultCategories.expenseCategories.first().id
+                        selectedCategory = expDefault
                     },
                     shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)
                 ) {
@@ -150,7 +167,8 @@ fun AddTransactionScreen(
                     selected = !isExpense,
                     onClick = {
                         isExpense = false
-                        selectedCategory = DefaultCategories.incomeCategories.first().id
+                        val incDefault = DefaultCategories.incomeCategories.first().id
+                        selectedCategory = incDefault
                     },
                     shape = RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp)
                 ) {
@@ -245,7 +263,7 @@ fun AddTransactionScreen(
                 }
             }
 
-            // Category Selection
+            // Category Selection with "+ Add Custom Category" integrated into the grid/flow
             Column {
                 Text(
                     text = if (isBengali) "ক্যাটেগরি / খাত" else "Category",
@@ -272,6 +290,30 @@ fun AddTransactionScreen(
                             )
                         )
                     }
+
+                    // Direct "+ Add Custom Category" button at the end of the list/grid
+                    SuggestionChip(
+                        onClick = { showAddCategoryDialog = true },
+                        label = {
+                            Text(
+                                text = if (isBengali) "নতুন খাত যোগ করুন" else "Add Custom Category",
+                                fontWeight = FontWeight.Medium
+                            )
+                        },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            labelColor = MaterialTheme.colorScheme.primary,
+                            iconContentColor = MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier.testTag("add_custom_category_chip")
+                    )
                 }
             }
 
@@ -356,4 +398,95 @@ fun AddTransactionScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
+
+    // Direct Add Custom Category Dialog
+    if (showAddCategoryDialog) {
+        var categoryNameInput by remember { mutableStateOf("") }
+        var categoryInputError by remember { mutableStateOf<String?>(null) }
+
+        AlertDialog(
+            onDismissRequest = { showAddCategoryDialog = false },
+            title = {
+                Text(
+                    text = if (isExpense) {
+                        if (isBengali) "নতুন ব্যয় খাত যোগ করুন" else "Add Custom Expense Category"
+                    } else {
+                        if (isBengali) "নতুন আয় খাত যোগ করুন" else "Add Custom Income Category"
+                    },
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = if (isBengali)
+                            "খাতের নাম লিখুন (যেমন: ${if (isExpense) "Medicine, Gym, Family" else "Freelancing, Tuition, Gift"}):"
+                        else
+                            "Enter category name (e.g., ${if (isExpense) "Medicine, Gym, Family" else "Freelancing, Tuition, Gift"}):",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedTextField(
+                        value = categoryNameInput,
+                        onValueChange = {
+                            categoryNameInput = it
+                            categoryInputError = null
+                        },
+                        label = { Text(if (isBengali) "খাতের নাম" else "Category Name") },
+                        placeholder = {
+                            Text(if (isExpense) "e.g. Medicine" else "e.g. Freelancing")
+                        },
+                        singleLine = true,
+                        isError = categoryInputError != null,
+                        supportingText = categoryInputError?.let { { Text(it, color = ExpenseRed) } },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("custom_category_name_input"),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val trimmed = categoryNameInput.trim()
+                        if (trimmed.isEmpty()) {
+                            categoryInputError = if (isBengali) "খাতের নাম খালি হতে পারে না" else "Category name cannot be empty"
+                            return@Button
+                        }
+                        if (categoryManager.isDuplicateName(trimmed, currentType)) {
+                            categoryInputError = if (isBengali) "এই নামের খাত ইতিমধ্যে রয়েছে" else "Category with this name already exists"
+                            return@Button
+                        }
+
+                        // Add category persistently
+                        val newCategory = categoryManager.addCategory(
+                            name = trimmed,
+                            type = currentType
+                        )
+
+                        // Immediately select newly created category and dismiss dialog
+                        selectedCategory = newCategory.id
+                        showAddCategoryDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isExpense) ExpenseRed else IncomeGreen
+                    ),
+                    modifier = Modifier.testTag("confirm_add_category_button")
+                ) {
+                    Text(if (isBengali) "যুক্ত করুন" else "Add Category")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showAddCategoryDialog = false },
+                    modifier = Modifier.testTag("cancel_add_category_button")
+                ) {
+                    Text(if (isBengali) "বাতিল" else "Cancel")
+                }
+            }
+        )
+    }
 }
+

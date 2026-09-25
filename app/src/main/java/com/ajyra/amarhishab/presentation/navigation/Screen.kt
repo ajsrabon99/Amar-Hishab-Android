@@ -25,4 +25,8 @@ sealed class Screen(
     object Transfer : Screen("transfer", "Transfer", "ট্রান্সফার", null)
     object Settings : Screen("settings", "Settings", "সেটিংস", null)
     object Notifications : Screen("notifications", "Notifications", "বিজ্ঞপ্তি", null)
+    object Statement : Screen("statement", "Download Statement", "স্টেটমেন্ট ডাউনলোড", null)
+    object ImportData : Screen("import_data", "Import Data", "ডেটা ইমপোর্ট", null)
+    object CustomCategories : Screen("custom_categories", "Custom Categories", "কাস্টম ক্যাটাগরি", null)
+    object SavingsGoals : Screen("savings_goals", "Savings Goals", "সঞ্চয় লক্ষ্য", null)
 }

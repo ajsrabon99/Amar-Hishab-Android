@@ -3,6 +3,7 @@ package com.ajyra.amarhishab.data.local
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Build
 import androidx.core.app.NotificationCompat
@@ -175,12 +176,28 @@ class NotificationRepository(private val context: Context) {
             val title = if (isBengali) notification.titleBn else notification.titleEn
             val content = if (isBengali) notification.messageBn else notification.messageEn
 
+            val intent = Intent(context, com.ajyra.amarhishab.MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("destination", "settings")
+                putExtra("section", "community")
+                if (notification.actionUrl != null) {
+                    data = android.net.Uri.parse(notification.actionUrl)
+                }
+            }
+            val pendingIntent = android.app.PendingIntent.getActivity(
+                context,
+                notification.id.hashCode(),
+                intent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) android.app.PendingIntent.FLAG_IMMUTABLE else 0)
+            )
+
             val builder = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(title)
                 .setContentText(content)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(content))
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
 
             val manager = NotificationManagerCompat.from(context)
@@ -192,10 +209,30 @@ class NotificationRepository(private val context: Context) {
         }
     }
 
+    fun triggerTelegramCommunityNotificationOnce() {
+        val hasPrompted = prefs.getBoolean(KEY_PROMPTED_TELEGRAM, false)
+        if (!hasPrompted) {
+            prefs.edit().putBoolean(KEY_PROMPTED_TELEGRAM, true).apply()
+            val notification = AppNotification(
+                id = "telegram_community_invite",
+                titleEn = "Join Amar Hishab Community",
+                titleBn = "আমার হিসাব কমিউনিটিতে যুক্ত হন",
+                messageEn = "Join our Telegram community for the latest updates & news.",
+                messageBn = "সর্বশেষ আপডেট ও খবরের জন্য আমাদের টেলিগ্রাম কমিউনিটিতে যুক্ত হন।",
+                timestamp = System.currentTimeMillis(),
+                type = NotificationType.SYSTEM,
+                isRead = false,
+                actionUrl = "amarhishab://settings/community"
+            )
+            addNotification(notification, showSystemNotification = true)
+        }
+    }
+
     companion object {
         const val CHANNEL_ID = "amar_hishab_channel_general"
         private const val PREF_NAME = "amar_hishab_notifications"
         private const val KEY_NOTIFICATIONS_JSON = "notifications_json"
+        private const val KEY_PROMPTED_TELEGRAM = "key_prompted_telegram_community"
 
         @Volatile
         private var INSTANCE: NotificationRepository? = null

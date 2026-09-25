@@ -61,18 +61,24 @@ fun AppLockScreen(
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.padding(32.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(90.dp)
-                    .clip(CircleShape)
-                    .background(BrandDeepBlue),
-                contentAlignment = Alignment.Center
+            Surface(
+                modifier = Modifier.size(84.dp),
+                shape = CircleShape,
+                color = androidx.compose.ui.graphics.Color(0xFFF3F5F4),
+                shadowElevation = 6.dp
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.amar_hishab_icon),
-                    contentDescription = "Amar Hishab Logo",
-                    modifier = Modifier.size(68.dp)
-                )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.amar_hishab_icon),
+                        contentDescription = "Amar Hishab Logo",
+                        modifier = Modifier
+                            .size(70.dp)
+                            .clip(CircleShape)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))

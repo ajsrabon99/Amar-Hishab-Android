@@ -3,7 +3,8 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/amar_hishab_icon"
+        android:drawable="@drawable/ic_amar_icon"
         android:gravity="center" />
 </layer-list>
+
 

@@ -2,8 +2,19 @@ package com.ajyra.amarhishab.presentation.screens
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,9 +35,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Brightness4
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
@@ -35,6 +48,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Storage
@@ -93,7 +107,10 @@ import com.ajyra.amarhishab.utils.BiometricHelper
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     isBengali: Boolean,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToStatement: () -> Unit = {},
+    onNavigateToImportData: () -> Unit = {},
+    onNavigateToCustomCategories: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val language by viewModel.language.collectAsState()
@@ -107,6 +124,144 @@ fun SettingsScreen(
     var showThemeDialog by remember { mutableStateOf(false) }
     var showReleaseNotesDialog by remember { mutableStateOf(false) }
     var showHelpDialog by remember { mutableStateOf(false) }
+    var isChecking3DUpdate by remember { mutableStateOf(false) }
+
+    val infinite3DTransition = rememberInfiniteTransition(label = "3d_spin")
+    val rotX by infinite3DTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rx"
+    )
+    val rotY by infinite3DTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1700, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "ry"
+    )
+    val pulseScale by infinite3DTransition.animateFloat(
+        initialValue = 0.92f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
+    var isOpeningTelegram by remember { mutableStateOf(false) }
+    val telegramScaleTransition = rememberInfiniteTransition(label = "tg_scale")
+    val tgScale by telegramScaleTransition.animateFloat(
+        initialValue = 0.94f,
+        targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(450, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "tg_scale_val"
+    )
+
+    LaunchedEffect(isOpeningTelegram) {
+        if (isOpeningTelegram) {
+            kotlinx.coroutines.delay(650L)
+            isOpeningTelegram = false
+            val telegramUrl = "https://t.me/amarhishab"
+            try {
+                // Try open directly in Telegram app
+                val tgIntent = Intent(Intent.ACTION_VIEW, Uri.parse(telegramUrl)).apply {
+                    setPackage("org.telegram.messenger")
+                }
+                context.startActivity(tgIntent)
+            } catch (e: Exception) {
+                try {
+                    // Try open in browser / chooser
+                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(telegramUrl))
+                    context.startActivity(browserIntent)
+                } catch (e2: Exception) {
+                    // Safe fallback
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(isChecking3DUpdate) {
+        if (isChecking3DUpdate) {
+            kotlinx.coroutines.delay(4000L)
+            isChecking3DUpdate = false
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://amar-hisab.onrender.com/app/"))
+                context.startActivity(intent)
+            } catch (_: Exception) {}
+        }
+    }
+
+    if (isChecking3DUpdate) {
+        AlertDialog(
+            onDismissRequest = { isChecking3DUpdate = false },
+            confirmButton = {},
+            title = {
+                Text(
+                    text = if (isBengali) "আপডেট সার্ভার অনুসন্ধান..." else "Checking for Updates...",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(76.dp)
+                            .graphicsLayer {
+                                rotationX = rotX
+                                rotationY = rotY
+                                scaleX = pulseScale
+                                scaleY = pulseScale
+                                cameraDistance = 14f * density
+                            }
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(FintechPrimary, EmeraldPrimary, Color(0xFF0F172A))
+                                ),
+                                shape = RoundedCornerShape(18.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SystemUpdate,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(38.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = if (isBengali) "সার্ভারের সাথে সংযোগ স্থাপন করা হচ্ছে..." else "Connecting to live update server...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "amar-hisab.onrender.com/app",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = FintechPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
 
     // Theme selector dialog
     if (showThemeDialog) {
@@ -373,6 +528,66 @@ fun SettingsScreen(
         else -> {}
     }
 
+    if (isOpeningTelegram) {
+        AlertDialog(
+            onDismissRequest = { isOpeningTelegram = false },
+            confirmButton = {},
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .graphicsLayer {
+                                scaleX = tgScale
+                                scaleY = tgScale
+                            }
+                            .clip(CircleShape)
+                            .background(Color(0xFF229ED9).copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_telegram),
+                            contentDescription = "Telegram",
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(44.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = if (isBengali) "টেলিগ্রাম কমিউনিটিতে যুক্ত হচ্ছে..." else "Opening Telegram Community...",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "t.me/amarhishab",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF229ED9),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth(0.7f)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = Color(0xFF229ED9),
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -557,6 +772,40 @@ fun SettingsScreen(
                 }
             }
 
+            // Data Management & Statements Section
+            item {
+                SettingsSectionHeader(if (isBengali) "ডেটা ও স্টেটমেন্ট" else "Data & Statements")
+                Spacer(modifier = Modifier.height(6.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column {
+                        SettingsOptionRow(
+                            icon = Icons.Default.PictureAsPdf,
+                            title = if (isBengali) "স্টেটমেন্ট ডাউনলোড (PDF / CSV)" else "Download Statement (PDF / CSV)",
+                            subtitle = if (isBengali) "ফিল্টার ও তারিখ অনুসারে হিসাব এক্সপোর্ট করুন" else "Export statements with custom filters",
+                            onClick = onNavigateToStatement
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                        SettingsOptionRow(
+                            icon = Icons.Default.FileUpload,
+                            title = if (isBengali) "ডেটা ইমপোর্ট (CSV / ZIP)" else "Import Transactions (CSV / ZIP)",
+                            subtitle = if (isBengali) "বাইরের ফাইল থেকে হিসাব যোগ করুন" else "Import data with preview & duplicate protection",
+                            onClick = onNavigateToImportData
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                        SettingsOptionRow(
+                            icon = Icons.Default.Category,
+                            title = if (isBengali) "কাস্টম খাত পরিচালনা" else "Manage Custom Categories",
+                            subtitle = if (isBengali) "নিজের তৈরি আয় ও ব্যয়ের খাত দেখুন ও পরিমার্জন করুন" else "Create, edit, and manage custom categories",
+                            onClick = onNavigateToCustomCategories
+                        )
+                    }
+                }
+            }
+
             // App Updates Section
             item {
                 SettingsSectionHeader(if (isBengali) "অ্যাপ আপডেট" else "App Updates")
@@ -569,17 +818,14 @@ fun SettingsScreen(
                     Column {
                         SettingsOptionRow(
                             icon = Icons.Default.SystemUpdate,
-                            title = if (isBengali) "আপডেট চেক করুন (GitHub)" else "Check for Updates (GitHub)",
+                            title = if (isBengali) "আপডেট চেক করুন" else "Check for Updates",
                             subtitle = "v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})",
                             trailingContent = {
-                                if (updateCheckState is UpdateCheckState.Checking) {
-                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                                } else {
-                                    TextButton(onClick = { viewModel.checkForUpdates() }) {
-                                        Text(if (isBengali) "চেক করুন" else "Check Now", color = EmeraldPrimary)
-                                    }
+                                TextButton(onClick = { isChecking3DUpdate = true }) {
+                                    Text(if (isBengali) "চেক করুন" else "Check Now", color = EmeraldPrimary, fontWeight = FontWeight.Bold)
                                 }
-                            }
+                            },
+                            onClick = { isChecking3DUpdate = true }
                         )
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                         SettingsOptionRow(
@@ -587,13 +833,6 @@ fun SettingsScreen(
                             title = if (isBengali) "রিলিজ নোটস" else "Release Notes",
                             subtitle = if (isBengali) "ভার্সন ${BuildConfig.VERSION_NAME} এর নতুন ফিচারসমূহ" else "See what is new in version ${BuildConfig.VERSION_NAME}",
                             onClick = { showReleaseNotesDialog = true }
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
-                        SettingsOptionRow(
-                            icon = Icons.Default.NotificationsActive,
-                            title = if (isBengali) "আপডেট ডায়ালগ ও নোটিফিকেশন টেস্ট" else "Test Update Dialog & Flow",
-                            subtitle = if (isBengali) "ইন-অ্যাপ বিজ্ঞপ্তি ও ডাউনলোড ফ্লো পরীক্ষা করুন" else "Preview update dialog & trigger notification",
-                            onClick = { viewModel.testUpdateNotificationFlow() }
                         )
                     }
                 }
@@ -661,24 +900,12 @@ fun SettingsScreen(
                         )
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                         SettingsOptionRow(
-                            painter = painterResource(id = R.drawable.ic_instagram),
+                            painter = painterResource(id = R.drawable.ic_telegram),
                             iconTint = Color.Unspecified,
-                            title = "Instagram Profile",
-                            subtitle = "Follow AJ SRABON on Instagram",
+                            title = if (isBengali) "আমার হিসাব কমিউনিটি" else "Amar Hishab Community",
+                            subtitle = if (isBengali) "সর্বশেষ আপডেট ও খবরের জন্য" else "For latest updates & news",
                             onClick = {
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("http://instagram.com/_u/aj_srabon_")).apply {
-                                        setPackage("com.instagram.android")
-                                    }
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    try {
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/aj_srabon_"))
-                                        context.startActivity(intent)
-                                    } catch (e2: Exception) {
-                                        // Fallback
-                                    }
-                                }
+                                isOpeningTelegram = true
                             }
                         )
                     }

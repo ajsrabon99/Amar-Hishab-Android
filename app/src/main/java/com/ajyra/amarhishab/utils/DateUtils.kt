@@ -58,4 +58,12 @@ object DateUtils {
     }
 
     fun monthName(month: Int, isBengali: Boolean = false): String = getMonthName(month, isBengali)
+
+    fun formatFriendlyDate(dateStr: String, isBengali: Boolean = false): String = formatDisplayDate(dateStr, isBengali)
+
+    fun daysFromNow(days: Int): String {
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.DAY_OF_YEAR, days)
+        return apiDateFormat.format(cal.time)
+    }
 }

@@ -147,9 +147,13 @@ class EncryptedSessionManager(private val context: Context) {
         )
     }
 
-    fun updateProfileAvatar(avatarUri: String) {
+    fun updateProfileAvatar(avatarUri: String?) {
         val current = _currentUser.value
-        settingsPrefs.edit().putString(KEY_USER_AVATAR_URI, avatarUri).apply()
+        if (avatarUri != null) {
+            settingsPrefs.edit().putString(KEY_USER_AVATAR_URI, avatarUri).apply()
+        } else {
+            settingsPrefs.edit().remove(KEY_USER_AVATAR_URI).apply()
+        }
         _currentUser.value = current.copy(avatarUri = avatarUri)
     }
 
@@ -193,6 +197,16 @@ class EncryptedSessionManager(private val context: Context) {
 
     fun areExpenseRemindersEnabled(): Boolean = settingsPrefs.getBoolean(KEY_REMINDERS, true)
 
+    private val _isBalanceHidden = MutableStateFlow(isBalanceHidden())
+    val isBalanceHidden: StateFlow<Boolean> = _isBalanceHidden.asStateFlow()
+
+    fun isBalanceHidden(): Boolean = settingsPrefs.getBoolean(KEY_BALANCE_HIDDEN, false)
+
+    fun setBalanceHidden(hidden: Boolean) {
+        settingsPrefs.edit().putBoolean(KEY_BALANCE_HIDDEN, hidden).apply()
+        _isBalanceHidden.value = hidden
+    }
+
     fun setMonthlySummaryEnabled(enabled: Boolean) {
         settingsPrefs.edit().putBoolean(KEY_MONTHLY_SUMMARY, enabled).apply()
     }
@@ -225,6 +239,7 @@ class EncryptedSessionManager(private val context: Context) {
         private const val KEY_REMINDERS = "reminders"
         private const val KEY_MONTHLY_SUMMARY = "monthly_summary"
         private const val KEY_APP_LOCK = "app_lock"
+        private const val KEY_BALANCE_HIDDEN = "balance_hidden"
 
         @Volatile
         private var INSTANCE: EncryptedSessionManager? = null

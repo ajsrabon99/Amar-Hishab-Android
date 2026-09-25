@@ -33,7 +33,7 @@ class TransactionsViewModel(
     private val financeRepository: FinanceRepository
 ) : ViewModel() {
 
-    private val allTransactions: Flow<List<Transaction>> = financeRepository.getAllTransactions()
+    val allTransactions: Flow<List<Transaction>> = financeRepository.getAllTransactions()
 
     private val _filters = MutableStateFlow(TransactionFilters())
     val filters: StateFlow<TransactionFilters> = _filters.asStateFlow()
