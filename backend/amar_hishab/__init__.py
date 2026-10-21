@@ -1,1 +1,0 @@
-# Amar Hishab Core

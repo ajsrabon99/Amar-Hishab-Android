@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [TransactionEntity::class, SavingsGoalEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AmarHishabDatabase : RoomDatabase() {
@@ -40,6 +40,13 @@ abstract class AmarHishabDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `transactions` ADD COLUMN `workspace` TEXT NOT NULL DEFAULT 'PERSONAL'")
+                db.execSQL("ALTER TABLE `savings_goals` ADD COLUMN `workspace` TEXT NOT NULL DEFAULT 'PERSONAL'")
+            }
+        }
+
         fun getInstance(context: Context): AmarHishabDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -47,7 +54,7 @@ abstract class AmarHishabDatabase : RoomDatabase() {
                     AmarHishabDatabase::class.java,
                     "amar_hishab_db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                 INSTANCE = instance

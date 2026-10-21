@@ -219,6 +219,19 @@ class EncryptedSessionManager(private val context: Context) {
 
     fun isAppLockEnabled(): Boolean = settingsPrefs.getBoolean(KEY_APP_LOCK, false)
 
+    private val _currentWorkspace = MutableStateFlow(getSavedWorkspace())
+    val currentWorkspace: StateFlow<com.ajyra.amarhishab.model.Workspace> = _currentWorkspace.asStateFlow()
+
+    fun getSavedWorkspace(): com.ajyra.amarhishab.model.Workspace {
+        val id = settingsPrefs.getString(KEY_ACTIVE_WORKSPACE, com.ajyra.amarhishab.model.Workspace.PERSONAL.id)
+        return com.ajyra.amarhishab.model.Workspace.fromId(id)
+    }
+
+    fun setWorkspace(workspace: com.ajyra.amarhishab.model.Workspace) {
+        settingsPrefs.edit().putString(KEY_ACTIVE_WORKSPACE, workspace.id).apply()
+        _currentWorkspace.value = workspace
+    }
+
     companion object {
         private const val TAG = "EncryptedSessionManager"
         private const val PREF_FILE_SECURE = "amar_hishab_secure_prefs"
@@ -240,6 +253,7 @@ class EncryptedSessionManager(private val context: Context) {
         private const val KEY_MONTHLY_SUMMARY = "monthly_summary"
         private const val KEY_APP_LOCK = "app_lock"
         private const val KEY_BALANCE_HIDDEN = "balance_hidden"
+        private const val KEY_ACTIVE_WORKSPACE = "active_workspace"
 
         @Volatile
         private var INSTANCE: EncryptedSessionManager? = null

@@ -24,7 +24,7 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
     }
 
     private val financeRepository: FinanceRepository by lazy {
-        FinanceRepository(database.transactionDao(), apiService, database.savingsGoalDao())
+        FinanceRepository(database.transactionDao(), apiService, database.savingsGoalDao(), sessionManager)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -56,6 +56,13 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
             }
             modelClass.isAssignableFrom(NotificationViewModel::class.java) -> {
                 NotificationViewModel(com.ajyra.amarhishab.data.local.NotificationRepository.getInstance(context)) as T
+            }
+            modelClass.isAssignableFrom(SmartSpendingViewModel::class.java) -> {
+                SmartSpendingViewModel(
+                    spendingPlannerManager = com.ajyra.amarhishab.data.local.SpendingPlannerManager.getInstance(context),
+                    financeRepository = financeRepository,
+                    sessionManager = sessionManager
+                ) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

@@ -22,6 +22,10 @@ sealed class Screen(
         fun createRoute(isExpense: Boolean): String = "add_transaction/$isExpense"
     }
 
+    object EditTransaction : Screen("edit_transaction/{transactionId}", "Edit", "সম্পাদনা", null) {
+        fun createRoute(transactionId: String): String = "edit_transaction/$transactionId"
+    }
+
     object Transfer : Screen("transfer", "Transfer", "ট্রান্সফার", null)
     object Settings : Screen("settings", "Settings", "সেটিংস", null)
     object Notifications : Screen("notifications", "Notifications", "বিজ্ঞপ্তি", null)
@@ -29,4 +33,5 @@ sealed class Screen(
     object ImportData : Screen("import_data", "Import Data", "ডেটা ইমপোর্ট", null)
     object CustomCategories : Screen("custom_categories", "Custom Categories", "কাস্টম ক্যাটাগরি", null)
     object SavingsGoals : Screen("savings_goals", "Savings Goals", "সঞ্চয় লক্ষ্য", null)
+    object SmartSpending : Screen("smart_spending", "Smart Spending", "স্মার্ট খরচ পরিকল্পনা", null)
 }

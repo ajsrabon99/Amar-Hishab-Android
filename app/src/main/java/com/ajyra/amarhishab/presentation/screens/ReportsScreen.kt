@@ -22,6 +22,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -31,21 +33,28 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ajyra.amarhishab.data.local.CategoryManager
 import com.ajyra.amarhishab.model.AccountType
 import com.ajyra.amarhishab.presentation.components.EmptyStateView
+import com.ajyra.amarhishab.presentation.viewmodel.ReportPeriod
 import com.ajyra.amarhishab.presentation.viewmodel.ReportsViewModel
 import com.ajyra.amarhishab.ui.theme.AccountBkash
 import com.ajyra.amarhishab.ui.theme.AccountNagad
@@ -62,7 +71,11 @@ fun ReportsScreen(
     reportsViewModel: ReportsViewModel,
     isBengali: Boolean
 ) {
+    val context = LocalContext.current
+    val categoryManager = remember { CategoryManager.getInstance(context) }
+
     val report by reportsViewModel.report.collectAsState()
+    val selectedPeriod by reportsViewModel.selectedPeriod.collectAsState()
     val selectedYear by reportsViewModel.selectedYear.collectAsState()
     val selectedMonth by reportsViewModel.selectedMonth.collectAsState()
 
@@ -74,7 +87,7 @@ fun ReportsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (isBengali) "মাসিক রিপোর্ট" else "Monthly Reports",
+                        text = if (isBengali) "আর্থিক রিপোর্ট" else "Financial Reports",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -93,7 +106,50 @@ fun ReportsScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Month-Year Navigation Selector Card
+            // 1. Period Filter Section (This Month, Previous Month, This Year)
+            item {
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("reports_period_selector")
+                ) {
+                    SegmentedButton(
+                        selected = selectedPeriod == ReportPeriod.THIS_MONTH,
+                        onClick = { reportsViewModel.setSelectedPeriod(ReportPeriod.THIS_MONTH) },
+                        shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp),
+                        modifier = Modifier.testTag("period_filter_this_month")
+                    ) {
+                        Text(
+                            text = if (isBengali) "চলতি মাস" else "This Month",
+                            fontWeight = if (selectedPeriod == ReportPeriod.THIS_MONTH) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                    SegmentedButton(
+                        selected = selectedPeriod == ReportPeriod.PREVIOUS_MONTH,
+                        onClick = { reportsViewModel.setSelectedPeriod(ReportPeriod.PREVIOUS_MONTH) },
+                        shape = RoundedCornerShape(0.dp),
+                        modifier = Modifier.testTag("period_filter_prev_month")
+                    ) {
+                        Text(
+                            text = if (isBengali) "পূর্ববর্তী মাস" else "Previous Month",
+                            fontWeight = if (selectedPeriod == ReportPeriod.PREVIOUS_MONTH) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                    SegmentedButton(
+                        selected = selectedPeriod == ReportPeriod.THIS_YEAR,
+                        onClick = { reportsViewModel.setSelectedPeriod(ReportPeriod.THIS_YEAR) },
+                        shape = RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp),
+                        modifier = Modifier.testTag("period_filter_this_year")
+                    ) {
+                        Text(
+                            text = if (isBengali) "চলতি বছর" else "This Year",
+                            fontWeight = if (selectedPeriod == ReportPeriod.THIS_YEAR) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+
+            // 2. Active Period Banner / Header Card
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -104,57 +160,65 @@ fun ReportsScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(
-                            onClick = {
-                                if (selectedMonth > 1) {
-                                    reportsViewModel.setSelectedMonth(selectedMonth - 1)
-                                } else {
-                                    reportsViewModel.setSelectedMonth(12)
-                                    reportsViewModel.setSelectedYear(selectedYear - 1)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(EmeraldPrimary.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CalendarToday,
+                                    contentDescription = null,
+                                    tint = EmeraldPrimary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                val periodHeading = when (selectedPeriod) {
+                                    ReportPeriod.THIS_MONTH -> if (isBengali) "চলতি মাস (${monthName})" else "This Month (${monthName})"
+                                    ReportPeriod.PREVIOUS_MONTH -> if (isBengali) "পূর্ববর্তী মাস" else "Previous Month"
+                                    ReportPeriod.THIS_YEAR -> if (isBengali) "চলতি ক্যালেন্ডার বছর ($yearString)" else "Calendar Year ($yearString)"
                                 }
-                            },
-                            modifier = Modifier.testTag("prev_month_btn")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Previous Month"
-                            )
+                                Text(
+                                    text = periodHeading,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (isBengali)
+                                        "${if (selectedPeriod == ReportPeriod.THIS_YEAR) yearString else "$monthName, $yearString"} এর হিসাব"
+                                    else
+                                        "Records for ${report.periodLabel.ifBlank { "Selected Period" }}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
 
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                        ) {
                             Text(
-                                text = "$monthName, $yearString",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
-                        IconButton(
-                            onClick = {
-                                if (selectedMonth < 12) {
-                                    reportsViewModel.setSelectedMonth(selectedMonth + 1)
-                                } else {
-                                    reportsViewModel.setSelectedMonth(1)
-                                    reportsViewModel.setSelectedYear(selectedYear + 1)
-                                }
-                            },
-                            modifier = Modifier.testTag("next_month_btn")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = "Next Month"
+                                text = if (isBengali) "${report.transactionCount} টি লেনদেন" else "${report.transactionCount} txns",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
                     }
                 }
             }
 
-            // Overview Summary Card
+            // 3. Overview Summary Card
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -168,7 +232,11 @@ fun ReportsScreen(
                             .padding(20.dp)
                     ) {
                         Text(
-                            text = if (isBengali) "সারসংক্ষেপ" else "Monthly Overview",
+                            text = when (selectedPeriod) {
+                                ReportPeriod.THIS_MONTH -> if (isBengali) "চলতি মাসের সারসংক্ষেপ" else "This Month Overview"
+                                ReportPeriod.PREVIOUS_MONTH -> if (isBengali) "পূর্ববর্তী মাসের সারসংক্ষেপ" else "Previous Month Overview"
+                                ReportPeriod.THIS_YEAR -> if (isBengali) "চলতি বছরের সারসংক্ষেপ" else "This Year Overview"
+                            },
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -198,7 +266,7 @@ fun ReportsScreen(
                             // Savings
                             val savingsColor = if (report.saved >= 0) IncomeGreen else ExpenseRed
                             ReportMetricItem(
-                                title = if (isBengali) "সঞ্চয়" else "Net Savings",
+                                title = if (isBengali) "অবশিষ্ট সঞ্চয়" else "Net Remaining",
                                 amount = CurrencyFormatter.format(report.saved, isBengali),
                                 icon = Icons.Default.Savings,
                                 color = savingsColor
@@ -211,15 +279,15 @@ fun ReportsScreen(
             if (report.income == 0.0 && report.expense == 0.0) {
                 item {
                     EmptyStateView(
-                        title = if (isBengali) "এই মাসে কোনো তথ্য নেই" else "No Data for This Month",
+                        title = if (isBengali) "এই সময়কালে কোনো লেনদেন নেই" else "No Data for Selected Period",
                         subtitle = if (isBengali)
-                            "পূর্বের বা পরের মাস পরীক্ষা করুন অথবা লেনদেন যোগ করুন"
+                            "অন্য সময়কাল পরীক্ষা করুন অথবা নতুন লেনদেন যুক্ত করুন"
                         else
-                            "Check previous/next months or add new transactions"
+                            "Try selecting a different period or record a transaction"
                     )
                 }
             } else {
-                // Category breakdown section
+                // Category breakdown section (Expense)
                 if (report.categoryBreakdown.isNotEmpty()) {
                     item {
                         Text(
@@ -231,6 +299,7 @@ fun ReportsScreen(
                     }
 
                     items(report.categoryBreakdown) { cat ->
+                        val catDisplayName = categoryManager.getCategoryDisplayName(cat.category, isBengali)
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
@@ -242,7 +311,7 @@ fun ReportsScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(
-                                        text = cat.category,
+                                        text = catDisplayName,
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -270,6 +339,58 @@ fun ReportsScreen(
                     }
                 }
 
+                // Income Source breakdown section
+                if (report.incomeBreakdown.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = if (isBengali) "খাতভিত্তিক আয়ের বিশ্লেষণ" else "Income by Source",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+
+                    items(report.incomeBreakdown) { inc ->
+                        val incDisplayName = categoryManager.getCategoryDisplayName(inc.category, isBengali)
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = incDisplayName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    val percentStr = String.format("%.1f", inc.percentage)
+                                    val displayPercent = if (isBengali) CurrencyFormatter.toBengaliDigits(percentStr) else percentStr
+                                    Text(
+                                        text = "${CurrencyFormatter.format(inc.amount, isBengali)} ($displayPercent%)",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = IncomeGreen
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                LinearProgressIndicator(
+                                    progress = { (inc.percentage / 100.0).toFloat().coerceIn(0f, 1f) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .clip(CircleShape),
+                                    color = IncomeGreen,
+                                    trackColor = IncomeGreen.copy(alpha = 0.15f)
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Payment method breakdown section
                 if (report.paymentMethodBreakdown.isNotEmpty()) {
                     item {
@@ -288,7 +409,6 @@ fun ReportsScreen(
                             AccountType.NAGAD -> AccountNagad
                             AccountType.BANK -> TransferBlue
                             AccountType.CASH -> IncomeGreen
-                            else -> EmeraldPrimary
                         }
                         val accName = if (isBengali) accType.displayNameBn else accType.displayNameEn
 

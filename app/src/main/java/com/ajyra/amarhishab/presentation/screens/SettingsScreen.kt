@@ -1,5 +1,6 @@
 package com.ajyra.amarhishab.presentation.screens
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -9,8 +10,10 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.material3.Surface
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
@@ -37,8 +40,10 @@ import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.HelpOutline
@@ -91,6 +96,22 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.FolderZip
+import androidx.compose.material.icons.filled.SettingsBackupRestore
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.rememberCoroutineScope
+import com.ajyra.amarhishab.data.local.AmarHishabDatabase
+import com.ajyra.amarhishab.data.service.BackupAnalysis
+import com.ajyra.amarhishab.data.service.DataBackupService
+import com.ajyra.amarhishab.data.service.RestoreResult
+import com.ajyra.amarhishab.ui.theme.ExpenseRed
+import com.ajyra.amarhishab.ui.theme.IncomeGreen
+import kotlinx.coroutines.launch
 import com.ajyra.amarhishab.BuildConfig
 import com.ajyra.amarhishab.R
 import com.ajyra.amarhishab.data.local.ReleaseNotesRepository
@@ -110,7 +131,8 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToStatement: () -> Unit = {},
     onNavigateToImportData: () -> Unit = {},
-    onNavigateToCustomCategories: () -> Unit = {}
+    onNavigateToCustomCategories: () -> Unit = {},
+    onDataRestored: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val language by viewModel.language.collectAsState()
@@ -125,6 +147,91 @@ fun SettingsScreen(
     var showReleaseNotesDialog by remember { mutableStateOf(false) }
     var showHelpDialog by remember { mutableStateOf(false) }
     var isChecking3DUpdate by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var isCreatingBackup by remember { mutableStateOf(false) }
+    var isAnalyzingBackup by remember { mutableStateOf(false) }
+    var isRestoringBackup by remember { mutableStateOf(false) }
+    var backupAnalysis by remember { mutableStateOf<BackupAnalysis?>(null) }
+    var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
+    var restoreResult by remember { mutableStateOf<RestoreResult?>(null) }
+    var backupError by remember { mutableStateOf<String?>(null) }
+
+    val restoreFilePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            pendingRestoreUri = uri
+            scope.launch {
+                isAnalyzingBackup = true
+                backupAnalysis = null
+                restoreResult = null
+                try {
+                    val analysis = DataBackupService.analyzeBackup(context, uri)
+                    if (analysis.isValid) {
+                        backupAnalysis = analysis
+                    } else {
+                        backupError = analysis.errorReason ?: (if (isBengali) "অবৈধ ব্যাকআপ ফাইল" else "Invalid backup file")
+                    }
+                } catch (e: Exception) {
+                    backupError = e.message ?: (if (isBengali) "ফাইল বিশ্লেষণে ত্রুটি" else "Error analyzing backup file")
+                } finally {
+                    isAnalyzingBackup = false
+                }
+            }
+        }
+    }
+
+    fun performBackup() {
+        scope.launch {
+            isCreatingBackup = true
+            backupError = null
+            try {
+                val db = AmarHishabDatabase.getInstance(context)
+                val zipFile = DataBackupService.createBackup(
+                    context = context,
+                    dao = db.transactionDao(),
+                    goalDao = db.savingsGoalDao()
+                )
+                DataBackupService.shareBackupFile(context, zipFile, isBengali)
+                snackbarHostState.showSnackbar(
+                    if (isBengali) "ব্যাকআপ ফাইল সফলভাবে তৈরি হয়েছে" else "Backup .ZIP created successfully"
+                )
+            } catch (e: Exception) {
+                backupError = e.message ?: (if (isBengali) "ব্যাকআপ তৈরিতে ত্রুটি" else "Error creating backup")
+            } finally {
+                isCreatingBackup = false
+            }
+        }
+    }
+
+    fun performRestore(uri: Uri) {
+        scope.launch {
+            isRestoringBackup = true
+            backupError = null
+            try {
+                val db = AmarHishabDatabase.getInstance(context)
+                val result = DataBackupService.restoreBackup(
+                    context = context,
+                    uri = uri,
+                    dao = db.transactionDao(),
+                    goalDao = db.savingsGoalDao(),
+                    database = db
+                )
+                backupAnalysis = null
+                pendingRestoreUri = null
+                restoreResult = result
+                if (result.success) {
+                    onDataRestored()
+                }
+            } catch (e: Exception) {
+                backupError = e.message ?: (if (isBengali) "রিস্টোর প্রক্রিয়ায় ত্রুটি" else "Error during restore")
+            } finally {
+                isRestoringBackup = false
+            }
+        }
+    }
 
     val infinite3DTransition = rememberInfiniteTransition(label = "3d_spin")
     val rotX by infinite3DTransition.animateFloat(
@@ -588,7 +695,315 @@ fun SettingsScreen(
         )
     }
 
+    // Backup & Restore Dialogs
+    if (isCreatingBackup) {
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            title = {
+                Text(
+                    text = if (isBengali) "ব্যাকআপ ফাইল তৈরি হচ্ছে..." else "Creating Backup .ZIP...",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.padding(vertical = 12.dp)
+                ) {
+                    CircularProgressIndicator(color = EmeraldPrimary, strokeWidth = 3.dp)
+                    Text(
+                        text = if (isBengali) "অনুগ্রহ করে অপেক্ষা করুন, সমস্ত হিসাব সুরক্ষিত জিপ ফাইলে সাজানো হচ্ছে" else "Please wait while your data is safely packaged into a .ZIP archive",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        )
+    }
+
+    if (isAnalyzingBackup || isRestoringBackup) {
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            title = {
+                Text(
+                    text = if (isBengali) "ব্যাকআপ প্রক্রিয়াধীন..." else "Processing Backup...",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.padding(vertical = 12.dp)
+                ) {
+                    CircularProgressIndicator(color = EmeraldPrimary, strokeWidth = 3.dp)
+                    Text(
+                        text = if (isBengali) "ব্যাকআপ ফাইলটি যাচাই ও প্রস্তুত করা হচ্ছে..." else "Validating and restoring backup data...",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        )
+    }
+
+    backupAnalysis?.let { analysis ->
+        AlertDialog(
+            onDismissRequest = {
+                backupAnalysis = null
+                pendingRestoreUri = null
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.FolderZip,
+                    contentDescription = null,
+                    tint = EmeraldPrimary,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = if (isBengali) "ব্যাকআপ ডেটা পুনরুদ্ধার" else "Restore Backup Archive",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = if (isBengali) "নির্বাচিত ব্যাকআপ ফাইলের বিবরণ:" else "Backup file summary:",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = if (isBengali) "ব্যাকআপের তারিখ:" else "Backup Date:",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = analysis.backupDate,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = if (isBengali) "মোট লেনদেন:" else "Total Transactions:",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "${analysis.transactionCount} (${if (isBengali) "ব্যক্তিগত: ${analysis.personalTransactionCount}, ব্যবসায়িক: ${analysis.businessTransactionCount}" else "Personal: ${analysis.personalTransactionCount}, Business: ${analysis.businessTransactionCount}"})",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = if (isBengali) "কাস্টম খাত:" else "Custom Categories:",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "${analysis.categoryCount}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = if (isBengali) "সঞ্চয় লক্ষ্য (Goals):" else "Savings Goals:",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "${analysis.goalCount}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = if (isBengali)
+                            "রিস্টোর প্রক্রিয়ায় পূর্ববর্তী কোনো হিসাব মুছে যাবে না। নতুন রেকর্ডগুলো বিদ্যমান তথ্যের সাথে নিরাপদে যুক্ত করা হবে।"
+                        else
+                            "Existing data will not be erased. Compatible records will be merged safely without duplicates.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val uri = pendingRestoreUri
+                        if (uri != null) {
+                            performRestore(uri)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                ) {
+                    Text(if (isBengali) "রিস্টোর করুন" else "Restore Now")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    backupAnalysis = null
+                    pendingRestoreUri = null
+                }) {
+                    Text(if (isBengali) "বাতিল" else "Cancel")
+                }
+            }
+        )
+    }
+
+    restoreResult?.let { result ->
+        AlertDialog(
+            onDismissRequest = { restoreResult = null },
+            icon = {
+                Icon(
+                    imageVector = if (result.success) Icons.Default.CheckCircle else Icons.Default.Error,
+                    contentDescription = null,
+                    tint = if (result.success) IncomeGreen else ExpenseRed,
+                    modifier = Modifier.size(40.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = if (result.success) {
+                        if (isBengali) "রিস্টোর সফলভাবে সম্পন্ন হয়েছে" else "Restore Successful"
+                    } else {
+                        if (isBengali) "রিস্টোর ব্যর্থ হয়েছে" else "Restore Failed"
+                    },
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                if (result.success) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = if (isBengali)
+                                "আপনার ব্যাকআপ ফাইল থেকে নিম্নোক্ত তথ্য সফলভাবে যুক্ত ও হালনাগাদ করা হয়েছে:"
+                            else
+                                "The following records have been safely restored and merged into your application:",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = if (isBengali) "পুনরুদ্ধারকৃত লেনদেন:" else "Transactions Restored:",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                    Text(
+                                        text = "${result.transactionsRestored} (${if (isBengali) "ব্যক্তিগত: ${result.personalTransactionsRestored}, ব্যবসায়িক: ${result.businessTransactionsRestored}" else "Personal: ${result.personalTransactionsRestored}, Business: ${result.businessTransactionsRestored}"})",
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = if (isBengali) "কাস্টম খাত:" else "Categories Restored:",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                    Text("${result.categoriesRestored}", fontWeight = FontWeight.Bold)
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = if (isBengali) "সঞ্চয় লক্ষ্য:" else "Savings Goals Restored:",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                    Text("${result.goalsRestored}", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Text(
+                        text = result.errorMessage
+                            ?: (if (isBengali) "অপ্রত্যাশিত কোনো ত্রুটি ঘটেছে" else "An unexpected error occurred during restore.")
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { restoreResult = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                ) {
+                    Text(if (isBengali) "ঠিক আছে" else "Done")
+                }
+            }
+        )
+    }
+
+    backupError?.let { err ->
+        AlertDialog(
+            onDismissRequest = { backupError = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Error,
+                    contentDescription = null,
+                    tint = ExpenseRed,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = if (isBengali) "ত্রুটি" else "Error",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(text = err, style = MaterialTheme.typography.bodyMedium)
+            },
+            confirmButton = {
+                TextButton(onClick = { backupError = null }) {
+                    Text(if (isBengali) "ঠিক আছে" else "OK")
+                }
+            }
+        )
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -783,6 +1198,22 @@ fun SettingsScreen(
                 ) {
                     Column {
                         SettingsOptionRow(
+                            icon = Icons.Default.FolderZip,
+                            title = if (isBengali) "সম্পূর্ণ ডেটা ব্যাকআপ (.ZIP)" else "Full Data Backup (.ZIP)",
+                            subtitle = if (isBengali) "ব্যক্তিগত ও বাণিজ্যিক সব লেনদেন সুরক্ষিত ZIP ফাইলে সংরক্ষণ করুন" else "Create a safe .ZIP backup of all personal and business records",
+                            onClick = { performBackup() }
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                        SettingsOptionRow(
+                            icon = Icons.Default.SettingsBackupRestore,
+                            title = if (isBengali) "ব্যাকআপ রিস্টোর (.ZIP)" else "Restore Backup (.ZIP)",
+                            subtitle = if (isBengali) "পূর্ববর্তী ZIP ব্যাকআপ ফাইল থেকে ডেটা পুনরুদ্ধার ও একত্রীকরণ করুন" else "Restore and merge records safely from an Amar Hishab .ZIP backup",
+                            onClick = {
+                                restoreFilePickerLauncher.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream", "*/*"))
+                            }
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                        SettingsOptionRow(
                             icon = Icons.Default.PictureAsPdf,
                             title = if (isBengali) "স্টেটমেন্ট ডাউনলোড (PDF / CSV)" else "Download Statement (PDF / CSV)",
                             subtitle = if (isBengali) "ফিল্টার ও তারিখ অনুসারে হিসাব এক্সপোর্ট করুন" else "Export statements with custom filters",
@@ -908,6 +1339,54 @@ fun SettingsScreen(
                                 isOpeningTelegram = true
                             }
                         )
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Favorite,
+                                    contentDescription = "Donation",
+                                    tint = Color(0xFFEF4444),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isBengali) "অনুদান ও সহায়তা (Donation)" else "Support / Donation",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (isBengali) "অ্যাপটি আপনার উপকারে আসলে আমাদের উন্নয়ন কাজে সহযোগিতা করতে পারেন (Personal Send Money):"
+                                else "Support the continuous development of Amar Hishab (Personal Send Money):",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            DonationNumberRow(
+                                provider = "bKash",
+                                number = "01327206804",
+                                brandColor = Color(0xFFE2136E),
+                                context = context,
+                                isBengali = isBengali
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            DonationNumberRow(
+                                provider = "Nagad",
+                                number = "01327206804",
+                                brandColor = Color(0xFFF7941D),
+                                context = context,
+                                isBengali = isBengali
+                            )
+                        }
                     }
                 }
             }
@@ -1002,3 +1481,69 @@ private fun SettingsOptionRow(
         }
     }
 }
+
+@Composable
+private fun DonationNumberRow(
+    provider: String,
+    number: String,
+    brandColor: Color,
+    context: Context,
+    isBengali: Boolean
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = brandColor.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, brandColor.copy(alpha = 0.3f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = brandColor,
+                    modifier = Modifier.padding(end = 8.dp)
+                ) {
+                    Text(
+                        text = provider,
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+                Text(
+                    text = number,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            IconButton(
+                onClick = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("$provider Number", number))
+                    android.widget.Toast.makeText(
+                        context,
+                        if (isBengali) "$provider নম্বর কপি হয়েছে: $number" else "$provider number copied: $number",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = "Copy $provider number",
+                    tint = brandColor,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
+

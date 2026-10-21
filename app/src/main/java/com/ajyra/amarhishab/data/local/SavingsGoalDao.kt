@@ -22,6 +22,9 @@ interface SavingsGoalDao {
     @Query("SELECT * FROM savings_goals ORDER BY createdAt DESC")
     fun getAllGoals(): Flow<List<SavingsGoalEntity>>
 
+    @Query("SELECT * FROM savings_goals WHERE workspace = :workspace ORDER BY createdAt DESC")
+    fun getGoalsByWorkspace(workspace: String): Flow<List<SavingsGoalEntity>>
+
     @Query("SELECT * FROM savings_goals ORDER BY createdAt DESC")
     suspend fun getAllGoalsList(): List<SavingsGoalEntity>
 
@@ -33,6 +36,9 @@ interface SavingsGoalDao {
 
     @Query("SELECT * FROM savings_goals WHERE isActiveOnDashboard = 1 LIMIT 1")
     fun getActiveDashboardGoal(): Flow<SavingsGoalEntity?>
+
+    @Query("SELECT * FROM savings_goals WHERE workspace = :workspace AND isActiveOnDashboard = 1 LIMIT 1")
+    fun getActiveDashboardGoalByWorkspace(workspace: String): Flow<SavingsGoalEntity?>
 
     @Query("UPDATE savings_goals SET isActiveOnDashboard = 0")
     suspend fun clearActiveDashboardGoals()

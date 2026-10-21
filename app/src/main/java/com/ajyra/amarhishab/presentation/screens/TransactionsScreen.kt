@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -18,9 +19,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -65,13 +70,15 @@ import com.ajyra.amarhishab.ui.theme.TransferBlue
 fun TransactionsScreen(
     transactionsViewModel: TransactionsViewModel,
     isBengali: Boolean,
-    onNavigateToAddTransaction: (isExpense: Boolean) -> Unit
+    onNavigateToAddTransaction: (isExpense: Boolean) -> Unit,
+    onNavigateToEditTransaction: (transactionId: String) -> Unit = {}
 ) {
     val transactions by transactionsViewModel.filteredTransactions.collectAsState()
     val filters by transactionsViewModel.filters.collectAsState()
     val actionMessage by transactionsViewModel.actionMessage.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
+    var selectedTransactionForAction by remember { mutableStateOf<Transaction?>(null) }
     var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
 
     LaunchedEffect(actionMessage) {
@@ -79,6 +86,68 @@ fun TransactionsScreen(
             snackbarHostState.showSnackbar(it)
             transactionsViewModel.clearActionMessage()
         }
+    }
+
+    // Action Selection Dialog (Edit or Delete)
+    selectedTransactionForAction?.let { tx ->
+        AlertDialog(
+            onDismissRequest = { selectedTransactionForAction = null },
+            title = {
+                Text(
+                    text = if (isBengali) "লেনদেন সংক্রান্ত পদক্ষেপ" else "Transaction Options",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = if (isBengali)
+                            "${tx.category} - ৳${tx.amount} (${tx.date})"
+                        else
+                            "${tx.category} - ৳${tx.amount} (${tx.date})",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = if (isBengali)
+                            "আপনি কি এই লেনদেনটি সম্পাদনা করতে চান নাকি মুছে ফেলতে চান?"
+                        else
+                            "Would you like to edit or delete this transaction?",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val id = tx.id
+                        selectedTransactionForAction = null
+                        onNavigateToEditTransaction(id)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                    modifier = Modifier.testTag("edit_transaction_action_btn")
+                ) {
+                    Icon(imageVector = Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(if (isBengali) "সম্পাদনা" else "Edit")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = {
+                        transactionToDelete = tx
+                        selectedTransactionForAction = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed),
+                    modifier = Modifier.testTag("delete_transaction_action_btn")
+                ) {
+                    Icon(imageVector = Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(if (isBengali) "মুছে ফেলুন" else "Delete")
+                }
+            }
+        )
     }
 
     if (transactionToDelete != null) {
@@ -101,7 +170,8 @@ fun TransactionsScreen(
                     onClick = {
                         transactionToDelete?.let { transactionsViewModel.deleteTransaction(it.id) }
                         transactionToDelete = null
-                    }
+                    },
+                    modifier = Modifier.testTag("confirm_delete_transaction_button")
                 ) {
                     Text(if (isBengali) "মুছে ফেলুন" else "Delete", color = ExpenseRed)
                 }
@@ -308,7 +378,7 @@ fun TransactionsScreen(
                         TransactionRowItem(
                             transaction = transaction,
                             isBengali = isBengali,
-                            onClick = { transactionToDelete = transaction }
+                            onClick = { selectedTransactionForAction = transaction }
                         )
                     }
                     item {

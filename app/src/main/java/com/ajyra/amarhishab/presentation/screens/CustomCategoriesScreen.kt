@@ -66,6 +66,7 @@ import com.ajyra.amarhishab.model.TransactionType
 import com.ajyra.amarhishab.ui.theme.EmeraldPrimary
 import com.ajyra.amarhishab.ui.theme.ExpenseRed
 import com.ajyra.amarhishab.ui.theme.IncomeGreen
+import com.ajyra.amarhishab.data.local.EncryptedSessionManager
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,7 +77,10 @@ fun CustomCategoriesScreen(
 ) {
     val context = LocalContext.current
     val categoryManager = remember { CategoryManager.getInstance(context) }
-    val customCategories by categoryManager.customCategories.collectAsState()
+    val sessionManager = remember { EncryptedSessionManager.getInstance(context) }
+    val activeWorkspace by sessionManager.currentWorkspace.collectAsState()
+    val updateTrigger by categoryManager.categoriesUpdateTrigger.collectAsState()
+
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -86,7 +90,9 @@ fun CustomCategoriesScreen(
     var categoryToDelete by remember { mutableStateOf<CategoryItem?>(null) }
 
     val currentType = if (selectedTabIsExpense) TransactionType.EXPENSE else TransactionType.INCOME
-    val displayedCustomCategories = customCategories.filter { it.type == currentType }
+    val displayedCategories = remember(updateTrigger, selectedTabIsExpense, activeWorkspace) {
+        categoryManager.getAllCategories(currentType, activeWorkspace.id)
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -94,7 +100,7 @@ fun CustomCategoriesScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (isBengali) "কাস্টম ক্যাটাগরি" else "Custom Categories",
+                        text = if (isBengali) "ক্যাটাগরি ব্যবস্থাপনা" else "Category Management",
                         fontWeight = FontWeight.Bold
                     )
                 },
@@ -147,7 +153,7 @@ fun CustomCategoriesScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (displayedCustomCategories.isEmpty()) {
+            if (displayedCategories.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -165,13 +171,13 @@ fun CustomCategoriesScreen(
                             modifier = Modifier.size(56.dp)
                         )
                         Text(
-                            text = if (isBengali) "কোনো কাস্টম খাত যোগ করা হয়নি" else "No custom categories added yet",
+                            text = if (isBengali) "কোনো খাত অবশিষ্ট নেই" else "No categories available",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = if (isBengali) "নিচের '+' বাটনে চাপ দিয়ে আপনার নিজস্ব খাত যোগ করুন" else "Tap '+' button below to create your own category",
+                            text = if (isBengali) "নিচের '+' বাটনে চাপ দিয়ে আপনার নতুন খাত যোগ করুন" else "Tap '+' button below to create a new category",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -183,7 +189,8 @@ fun CustomCategoriesScreen(
                     contentPadding = PaddingValues(vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(displayedCustomCategories, key = { it.id }) { cat ->
+                    items(displayedCategories, key = { it.id }) { cat ->
+                        val isCustomCategory = categoryManager.isCustom(cat.id)
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -224,22 +231,31 @@ fun CustomCategoriesScreen(
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
-                                        text = if (isBengali) "কাস্টম তৈরি খাত" else "Custom Category",
+                                        text = if (isCustomCategory) {
+                                            if (isBengali) "কাস্টম তৈরি খাত" else "Custom Category"
+                                        } else {
+                                            if (isBengali) "ডিফল্ট খাত" else "Default Category"
+                                        },
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
 
-                                IconButton(onClick = { categoryToEdit = cat }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Edit",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                if (isCustomCategory) {
+                                    IconButton(onClick = { categoryToEdit = cat }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                                 }
 
-                                IconButton(onClick = { categoryToDelete = cat }) {
+                                IconButton(
+                                    onClick = { categoryToDelete = cat },
+                                    modifier = Modifier.testTag("delete_category_${cat.id}")
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
                                         contentDescription = "Delete",
@@ -321,7 +337,7 @@ fun CustomCategoriesScreen(
                             errorMessage = if (isBengali) "এই নামের খাত ইতিমধ্যে রয়েছে" else "Category already exists"
                             return@Button
                         }
-                        categoryManager.addCategory(trimmed, type)
+                        categoryManager.addCategory(trimmed, type, workspace = activeWorkspace.id)
                         showAddDialog = false
                         scope.launch {
                             snackbarHostState.showSnackbar(
@@ -425,7 +441,7 @@ fun CustomCategoriesScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        categoryManager.deleteCategory(cat.id)
+                        categoryManager.deleteCategory(cat.id, activeWorkspace.id)
                         categoryToDelete = null
                         scope.launch {
                             snackbarHostState.showSnackbar(
@@ -433,7 +449,8 @@ fun CustomCategoriesScreen(
                             )
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed)
+                    colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed),
+                    modifier = Modifier.testTag("confirm_delete_category_button")
                 ) {
                     Text(if (isBengali) "মুছে ফেলুন" else "Delete")
                 }

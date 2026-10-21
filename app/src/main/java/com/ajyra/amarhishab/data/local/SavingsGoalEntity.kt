@@ -15,7 +15,8 @@ data class SavingsGoalEntity(
     val description: String? = null,
     val iconCategory: String? = null,
     val isActiveOnDashboard: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val workspace: String = "PERSONAL"
 ) {
     fun toDomain(): SavingsGoal = SavingsGoal(
         id = id,
@@ -26,7 +27,8 @@ data class SavingsGoalEntity(
         description = description,
         iconCategory = iconCategory,
         isActiveOnDashboard = isActiveOnDashboard,
-        createdAt = createdAt
+        createdAt = createdAt,
+        workspace = workspace
     )
 
     companion object {
@@ -39,7 +41,8 @@ data class SavingsGoalEntity(
             description = domain.description,
             iconCategory = domain.iconCategory,
             isActiveOnDashboard = domain.isActiveOnDashboard,
-            createdAt = domain.createdAt
+            createdAt = domain.createdAt,
+            workspace = domain.workspace
         )
     }
 }

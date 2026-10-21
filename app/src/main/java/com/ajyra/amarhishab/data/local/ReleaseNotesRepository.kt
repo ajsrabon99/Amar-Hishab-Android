@@ -17,6 +17,21 @@ data class ReleaseNote(
 object ReleaseNotesRepository {
     val releaseNotes = listOf(
         ReleaseNote(
+            version = "1.2.6",
+            buildNumber = 20,
+            releaseDate = "October 2026",
+            highlightsEn = listOf(
+                "Custom Category Deletion: Easily delete custom Income and Expense categories permanently with historical transaction safety",
+                "Full ZIP Backup & Restore: Non-destructive, safe ZIP backup and restore preserving Personal and Business accounts without duplicates",
+                "Business Finance Workspace: Instant switching between Personal Account and Business Account via top avatar with strict data isolation"
+            ),
+            highlightsBn = listOf(
+                "কাস্টম খাত মুছে ফেলার সুবিধা: পূর্ববর্তী লেনদেন সুরক্ষিত রেখে স্থায়ীভাবে নিজস্ব আয় ও ব্যয়ের খাত মুছে ফেলার সুবিধা",
+                "পূর্ণাঙ্গ ZIP ব্যাকআপ ও রিস্টোর: কোনো ডেটা না হারিয়ে নিরাপদ ZIP ফাইল ব্যাকআপ এবং ডুপ্লিকেটহীন রিস্টোর সুবিধা",
+                "ব্যবসায়িক হিসাব (Business Workspace): উপরের প্রোফাইল ছবিতে ট্যাপ করে ব্যক্তিগত ও ব্যবসায়িক হিসাবের মাঝে দ্রুত পরিবর্তনের সুবিধা"
+            )
+        ),
+        ReleaseNote(
             version = "1.1.1",
             buildNumber = 12,
             releaseDate = "September 2026",

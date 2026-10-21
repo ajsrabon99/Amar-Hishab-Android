@@ -81,16 +81,29 @@ fun AddTransactionScreen(
 ) {
     val context = LocalContext.current
     val categoryManager = remember { CategoryManager.getInstance(context) }
-    val customCategories by categoryManager.customCategories.collectAsState()
+    val sessionManager = remember { com.ajyra.amarhishab.data.local.EncryptedSessionManager.getInstance(context) }
+    val activeWorkspace by sessionManager.currentWorkspace.collectAsState()
+    val updateTrigger by categoryManager.categoriesUpdateTrigger.collectAsState()
 
     var isExpense by remember { mutableStateOf(initialIsExpense) }
     var amountText by remember { mutableStateOf("") }
-    var selectedCategory by remember {
-        mutableStateOf(
-            if (initialIsExpense) DefaultCategories.expenseCategories.first().id
-            else DefaultCategories.incomeCategories.first().id
-        )
+
+    val currentType = if (isExpense) TransactionType.EXPENSE else TransactionType.INCOME
+    val activeCategories = remember(updateTrigger, currentType, activeWorkspace) {
+        categoryManager.getAllCategories(currentType, activeWorkspace.id)
     }
+
+    var selectedCategory by remember {
+        mutableStateOf(activeCategories.firstOrNull()?.id ?: "uncategorized")
+    }
+
+    // Ensure selected category is valid within active categories
+    LaunchedEffect(activeCategories) {
+        if (activeCategories.none { it.id.equals(selectedCategory, ignoreCase = true) || it.nameEn.equals(selectedCategory, ignoreCase = true) }) {
+            selectedCategory = activeCategories.firstOrNull()?.id ?: "uncategorized"
+        }
+    }
+
     var selectedAccount by remember { mutableStateOf(AccountType.CASH.code) }
     var dateText by remember { mutableStateOf(DateUtils.todayDateString()) }
     var descriptionText by remember { mutableStateOf("") }
@@ -104,12 +117,6 @@ fun AddTransactionScreen(
             onNavigateBack()
         }
     }
-
-    // Combine default and custom categories for the currently active transaction type
-    val currentType = if (isExpense) TransactionType.EXPENSE else TransactionType.INCOME
-    val defaultList = if (isExpense) DefaultCategories.expenseCategories else DefaultCategories.incomeCategories
-    val customList = customCategories.filter { it.type == currentType }
-    val activeCategories = defaultList + customList
 
     Scaffold(
         topBar = {
@@ -153,8 +160,8 @@ fun AddTransactionScreen(
                     selected = isExpense,
                     onClick = {
                         isExpense = true
-                        val expDefault = DefaultCategories.expenseCategories.first().id
-                        selectedCategory = expDefault
+                        val newCategories = categoryManager.getAllCategories(TransactionType.EXPENSE, activeWorkspace.id)
+                        selectedCategory = newCategories.firstOrNull()?.id ?: "uncategorized"
                     },
                     shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)
                 ) {
@@ -167,8 +174,8 @@ fun AddTransactionScreen(
                     selected = !isExpense,
                     onClick = {
                         isExpense = false
-                        val incDefault = DefaultCategories.incomeCategories.first().id
-                        selectedCategory = incDefault
+                        val newCategories = categoryManager.getAllCategories(TransactionType.INCOME, activeWorkspace.id)
+                        selectedCategory = newCategories.firstOrNull()?.id ?: "uncategorized"
                     },
                     shape = RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp)
                 ) {

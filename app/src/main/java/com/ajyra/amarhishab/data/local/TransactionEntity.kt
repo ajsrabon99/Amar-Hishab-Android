@@ -19,7 +19,8 @@ data class TransactionEntity(
     val description: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val isSynced: Boolean = true,
-    val syncStatus: String = "SYNCED"
+    val syncStatus: String = "SYNCED",
+    val workspace: String = "PERSONAL"
 ) {
     fun toDomain(): Transaction = Transaction(
         id = id,
@@ -36,7 +37,8 @@ data class TransactionEntity(
             SyncStatus.valueOf(syncStatus)
         } catch (e: Exception) {
             SyncStatus.SYNCED
-        }
+        },
+        workspace = workspace
     )
 
     companion object {
@@ -51,7 +53,8 @@ data class TransactionEntity(
             description = domain.description,
             createdAt = domain.createdAt,
             isSynced = domain.isSynced,
-            syncStatus = domain.syncStatus.name
+            syncStatus = domain.syncStatus.name,
+            workspace = domain.workspace
         )
     }
 }

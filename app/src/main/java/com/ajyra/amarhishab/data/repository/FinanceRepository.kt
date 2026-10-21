@@ -32,21 +32,49 @@ import java.util.UUID
 import kotlin.math.max
 import kotlin.math.round
 
+import java.util.Calendar
+import com.ajyra.amarhishab.model.MonthlyComparison
+import com.ajyra.amarhishab.data.local.EncryptedSessionManager
+import com.ajyra.amarhishab.model.Workspace
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+
 class FinanceRepository(
     private val transactionDao: TransactionDao,
     private val apiService: AmarHishabApiService,
-    private val savingsGoalDao: SavingsGoalDao? = null
+    private val savingsGoalDao: SavingsGoalDao? = null,
+    private val sessionManager: EncryptedSessionManager? = null
 ) {
 
+    val activeWorkspace: StateFlow<Workspace> = sessionManager?.currentWorkspace
+        ?: MutableStateFlow(Workspace.PERSONAL).asStateFlow()
+
+    fun getActiveWorkspaceId(): String = activeWorkspace.value.id
+
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun getAllTransactions(): Flow<List<Transaction>> {
+        return activeWorkspace.flatMapLatest { ws ->
+            transactionDao.getTransactionsByWorkspace(ws.id).map { entities ->
+                entities.map { it.toDomain() }
+            }
+        }
+    }
+
+    fun getAllTransactionsUnfiltered(): Flow<List<Transaction>> {
         return transactionDao.getAllTransactions().map { entities ->
             entities.map { it.toDomain() }
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun getRecentTransactions(limit: Int = 10): Flow<List<Transaction>> {
-        return transactionDao.getRecentTransactions(limit).map { entities ->
-            entities.map { it.toDomain() }
+        return activeWorkspace.flatMapLatest { ws ->
+            transactionDao.getRecentTransactionsByWorkspace(ws.id, limit).map { entities ->
+                entities.map { it.toDomain() }
+            }
         }
     }
 
@@ -54,6 +82,80 @@ class FinanceRepository(
         return getAllTransactions().map { transactions ->
             computeFinancialSummary(transactions)
         }
+    }
+
+    fun getMonthlyComparison(): Flow<MonthlyComparison> {
+        return getAllTransactions().map { transactions ->
+            computeMonthlyComparison(transactions)
+        }
+    }
+
+    private fun computeMonthlyComparison(transactions: List<Transaction>): MonthlyComparison {
+        val cal = Calendar.getInstance()
+        val curYear = cal.get(Calendar.YEAR)
+        val curMonth = cal.get(Calendar.MONTH) + 1
+
+        val prevCal = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }
+        val prevYear = prevCal.get(Calendar.YEAR)
+        val prevMonth = prevCal.get(Calendar.MONTH) + 1
+
+        val curMonthPrefix = String.format("%04d-%02d", curYear, curMonth)
+        val prevMonthPrefix = String.format("%04d-%02d", prevYear, prevMonth)
+
+        var thisIncome = 0.0
+        var thisExpense = 0.0
+        var thisCount = 0
+
+        var prevIncome = 0.0
+        var prevExpense = 0.0
+        var prevCount = 0
+
+        for (tx in transactions) {
+            if (tx.date.startsWith(curMonthPrefix)) {
+                thisCount++
+                if (tx.type == TransactionType.INCOME) thisIncome += tx.amount
+                else if (tx.type == TransactionType.EXPENSE) thisExpense += tx.amount
+            } else if (tx.date.startsWith(prevMonthPrefix)) {
+                prevCount++
+                if (tx.type == TransactionType.INCOME) prevIncome += tx.amount
+                else if (tx.type == TransactionType.EXPENSE) prevExpense += tx.amount
+            }
+        }
+
+        val thisNet = thisIncome - thisExpense
+        val prevNet = prevIncome - prevExpense
+
+        val incomePct = when {
+            prevIncome > 0.0 -> ((thisIncome - prevIncome) / prevIncome) * 100.0
+            thisIncome > 0.0 -> 100.0
+            else -> 0.0
+        }
+
+        val expensePct = when {
+            prevExpense > 0.0 -> ((thisExpense - prevExpense) / prevExpense) * 100.0
+            thisExpense > 0.0 -> 100.0
+            else -> 0.0
+        }
+
+        val netPct = when {
+            prevNet != 0.0 -> ((thisNet - prevNet) / Math.abs(prevNet)) * 100.0
+            thisNet != 0.0 -> 100.0
+            else -> 0.0
+        }
+
+        return MonthlyComparison(
+            thisMonthIncome = thisIncome,
+            prevMonthIncome = prevIncome,
+            incomeChangePct = incomePct,
+            thisMonthExpense = thisExpense,
+            prevMonthExpense = prevExpense,
+            expenseChangePct = expensePct,
+            thisMonthNet = thisNet,
+            prevMonthNet = prevNet,
+            netChangePct = netPct,
+            thisMonthTxCount = thisCount,
+            prevMonthTxCount = prevCount
+        )
     }
 
     fun getCategoryExpenses(): Flow<List<CategoryExpense>> {
@@ -143,6 +245,98 @@ class FinanceRepository(
         )
     }
 
+    suspend fun getPeriodReport(periodCode: String): MonthlyReport = withContext(Dispatchers.IO) {
+        val all = getAllTransactions().firstOrNull().orEmpty()
+        val cal = Calendar.getInstance()
+        val curYear = cal.get(Calendar.YEAR)
+        val curMonth = cal.get(Calendar.MONTH) + 1
+
+        val prevCal = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }
+        val prevYear = prevCal.get(Calendar.YEAR)
+        val prevMonth = prevCal.get(Calendar.MONTH) + 1
+
+        val curMonthPrefix = String.format("%04d-%02d", curYear, curMonth)
+        val prevMonthPrefix = String.format("%04d-%02d", prevYear, prevMonth)
+        val curYearPrefix = String.format("%04d", curYear)
+
+        val filteredTxs: List<Transaction>
+        val label: String
+        val repYear: Int
+        val repMonth: Int
+
+        when (periodCode) {
+            "PREVIOUS_MONTH" -> {
+                filteredTxs = all.filter { it.date.startsWith(prevMonthPrefix) }
+                label = "Previous Month"
+                repYear = prevYear
+                repMonth = prevMonth
+            }
+            "THIS_YEAR" -> {
+                filteredTxs = all.filter { it.date.startsWith(curYearPrefix) }
+                label = "This Year"
+                repYear = curYear
+                repMonth = curMonth
+            }
+            else -> {
+                filteredTxs = all.filter { it.date.startsWith(curMonthPrefix) }
+                label = "This Month"
+                repYear = curYear
+                repMonth = curMonth
+            }
+        }
+
+        var income = 0.0
+        var expense = 0.0
+        val categoryExpenseMap = mutableMapOf<String, Double>()
+        val categoryIncomeMap = mutableMapOf<String, Double>()
+        val accountMap = mutableMapOf<String, Double>()
+
+        for (tx in filteredTxs) {
+            when (tx.type) {
+                TransactionType.INCOME -> {
+                    income += tx.amount
+                    categoryIncomeMap[tx.category] = (categoryIncomeMap[tx.category] ?: 0.0) + tx.amount
+                }
+                TransactionType.EXPENSE -> {
+                    expense += tx.amount
+                    categoryExpenseMap[tx.category] = (categoryExpenseMap[tx.category] ?: 0.0) + tx.amount
+                    accountMap[tx.accountCode] = (accountMap[tx.accountCode] ?: 0.0) + tx.amount
+                }
+                TransactionType.TRANSFER -> {}
+            }
+        }
+
+        val saved = income - expense
+
+        val categoryBreakdown = categoryExpenseMap.map { (cat, amt) ->
+            val pct = if (expense > 0.0) (amt / expense) * 100.0 else 0.0
+            CategoryExpense(category = cat, amount = amt, percentage = pct)
+        }.sortedByDescending { it.amount }
+
+        val incomeBreakdown = categoryIncomeMap.map { (cat, amt) ->
+            val pct = if (income > 0.0) (amt / income) * 100.0 else 0.0
+            CategoryExpense(category = cat, amount = amt, percentage = pct)
+        }.sortedByDescending { it.amount }
+
+        val accountBreakdown = accountMap.map { (code, amt) ->
+            val pct = if (expense > 0.0) (amt / expense) * 100.0 else 0.0
+            AccountExpense(accountCode = code, amount = amt, percentage = pct)
+        }.sortedByDescending { it.amount }
+
+        MonthlyReport(
+            month = repMonth,
+            year = repYear,
+            income = income,
+            expense = expense,
+            saved = saved,
+            categoryBreakdown = categoryBreakdown,
+            paymentMethodBreakdown = accountBreakdown,
+            transactionCount = filteredTxs.size,
+            incomeBreakdown = incomeBreakdown,
+            periodLabel = label
+        )
+    }
+
     suspend fun getMonthlyReport(year: Int, month: Int): MonthlyReport = withContext(Dispatchers.IO) {
         val all = getAllTransactions().firstOrNull().orEmpty()
         val monthStr = String.format("%02d", month)
@@ -152,11 +346,15 @@ class FinanceRepository(
         var income = 0.0
         var expense = 0.0
         val categoryMap = mutableMapOf<String, Double>()
+        val categoryIncomeMap = mutableMapOf<String, Double>()
         val accountMap = mutableMapOf<String, Double>()
 
         for (tx in monthTxs) {
             when (tx.type) {
-                TransactionType.INCOME -> income += tx.amount
+                TransactionType.INCOME -> {
+                    income += tx.amount
+                    categoryIncomeMap[tx.category] = (categoryIncomeMap[tx.category] ?: 0.0) + tx.amount
+                }
                 TransactionType.EXPENSE -> {
                     expense += tx.amount
                     categoryMap[tx.category] = (categoryMap[tx.category] ?: 0.0) + tx.amount
@@ -175,6 +373,11 @@ class FinanceRepository(
             CategoryExpense(category = cat, amount = amt, percentage = pct)
         }.sortedByDescending { it.amount }
 
+        val incomeBreakdown = categoryIncomeMap.map { (cat, amt) ->
+            val pct = if (income > 0.0) (amt / income) * 100.0 else 0.0
+            CategoryExpense(category = cat, amount = amt, percentage = pct)
+        }.sortedByDescending { it.amount }
+
         val accountBreakdown = accountMap.map { (code, amt) ->
             val pct = if (expense > 0.0) (amt / expense) * 100.0 else 0.0
             AccountExpense(accountCode = code, amount = amt, percentage = pct)
@@ -187,7 +390,9 @@ class FinanceRepository(
             expense = expense,
             saved = saved,
             categoryBreakdown = categoryBreakdown,
-            paymentMethodBreakdown = accountBreakdown
+            paymentMethodBreakdown = accountBreakdown,
+            transactionCount = monthTxs.size,
+            incomeBreakdown = incomeBreakdown
         )
     }
 
@@ -198,7 +403,8 @@ class FinanceRepository(
         accountCode: String,
         toAccountCode: String? = null,
         date: String,
-        description: String? = null
+        description: String? = null,
+        workspace: String? = null
     ): NetworkResult<Transaction> = withContext(Dispatchers.IO) {
         val localId = UUID.randomUUID().toString()
         val localTx = Transaction(
@@ -212,7 +418,8 @@ class FinanceRepository(
             description = description,
             createdAt = System.currentTimeMillis(),
             isSynced = false,
-            syncStatus = SyncStatus.PENDING_CREATE
+            syncStatus = SyncStatus.PENDING_CREATE,
+            workspace = workspace ?: getActiveWorkspaceId()
         )
         // Save immediately locally for zero-loss offline support
         transactionDao.insert(TransactionEntity.fromDomain(localTx))
@@ -244,6 +451,10 @@ class FinanceRepository(
         }
     }
 
+    suspend fun getTransactionById(id: String): Transaction? = withContext(Dispatchers.IO) {
+        transactionDao.getTransactionById(id)?.toDomain()
+    }
+
     suspend fun updateTransaction(
         id: String,
         type: TransactionType,
@@ -254,17 +465,22 @@ class FinanceRepository(
         date: String,
         description: String? = null
     ): NetworkResult<Transaction> = withContext(Dispatchers.IO) {
+        val existing = transactionDao.getTransactionById(id)
+        val ws = existing?.workspace ?: getActiveWorkspaceId()
+        val finalCategory = if (type == TransactionType.TRANSFER) "transfer" else category
         val updatedTx = Transaction(
             id = id,
             type = type,
             amount = amount,
-            category = category,
+            category = finalCategory,
             accountCode = accountCode,
             toAccountCode = toAccountCode,
             date = date,
             description = description,
+            createdAt = existing?.createdAt ?: System.currentTimeMillis(),
             isSynced = false,
-            syncStatus = SyncStatus.PENDING_UPDATE
+            syncStatus = SyncStatus.PENDING_UPDATE,
+            workspace = ws
         )
         transactionDao.update(TransactionEntity.fromDomain(updatedTx))
 
@@ -272,7 +488,7 @@ class FinanceRepository(
             val req = CreateTransactionRequestDto(
                 type = type.value,
                 amount = amount,
-                category = category,
+                category = finalCategory,
                 account = accountCode,
                 toAccount = toAccountCode,
                 date = date,
@@ -317,7 +533,8 @@ class FinanceRepository(
             description = description ?: "Transfer from $fromAccount to $toAccount",
             createdAt = System.currentTimeMillis(),
             isSynced = false,
-            syncStatus = SyncStatus.PENDING_CREATE
+            syncStatus = SyncStatus.PENDING_CREATE,
+            workspace = getActiveWorkspaceId()
         )
         transactionDao.insert(TransactionEntity.fromDomain(localTx))
 
@@ -401,21 +618,27 @@ class FinanceRepository(
     // SAVINGS GOALS & SMART SUGGESTIONS
     // =========================================================================
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun getAllSavingsGoals(): Flow<List<SavingsGoal>> {
         val dao = savingsGoalDao ?: return flowOf(emptyList())
-        return dao.getAllGoals().map { entities ->
-            entities.map { it.toDomain() }
+        return activeWorkspace.flatMapLatest { ws ->
+            dao.getGoalsByWorkspace(ws.id).map { entities ->
+                entities.map { it.toDomain() }
+            }
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun getActiveSavingsGoal(): Flow<SavingsGoal?> {
         val dao = savingsGoalDao ?: return flowOf(null)
-        return dao.getAllGoals().map { entities ->
-            // Priority: explicitly active goal on dashboard, or first in-progress goal, or first goal
-            val active = entities.firstOrNull { it.isActiveOnDashboard }
-                ?: entities.firstOrNull { it.savedAmount < it.targetAmount }
-                ?: entities.firstOrNull()
-            active?.toDomain()
+        return activeWorkspace.flatMapLatest { ws ->
+            dao.getGoalsByWorkspace(ws.id).map { entities ->
+                // Priority: explicitly active goal on dashboard, or first in-progress goal, or first goal
+                val active = entities.firstOrNull { it.isActiveOnDashboard }
+                    ?: entities.firstOrNull { it.savedAmount < it.targetAmount }
+                    ?: entities.firstOrNull()
+                active?.toDomain()
+            }
         }
     }
 
@@ -424,7 +647,8 @@ class FinanceRepository(
         targetAmount: Double,
         targetDate: String,
         description: String? = null,
-        iconCategory: String? = "general"
+        iconCategory: String? = "general",
+        workspace: String? = null
     ): SavingsGoal = withContext(Dispatchers.IO) {
         val id = UUID.randomUUID().toString()
         val dao = savingsGoalDao ?: throw IllegalStateException("SavingsGoalDao not available")
@@ -438,7 +662,8 @@ class FinanceRepository(
             description = description?.trim(),
             iconCategory = iconCategory ?: "general",
             isActiveOnDashboard = isFirst,
-            createdAt = System.currentTimeMillis()
+            createdAt = System.currentTimeMillis(),
+            workspace = workspace ?: getActiveWorkspaceId()
         )
         dao.insert(entity)
         entity.toDomain()

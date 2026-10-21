@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -317,252 +318,301 @@ fun HeroBalanceCard(
     isBalanceHidden: Boolean = false,
     onToggleHideBalance: (() -> Unit)? = null
 ) {
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val isDark = isSystemInDarkTheme()
+
+    val cardBrush = if (isDark) {
+        Brush.linearGradient(
+            colors = listOf(
+                Color(0xFF0F172A),
+                Color(0xFF1E293B),
+                Color(0xFF0A2540)
+            )
+        )
+    } else {
+        Brush.linearGradient(
+            colors = listOf(
+                Color(0xFFFFFFFF),
+                Color(0xFFF8FAFC),
+                Color(0xFFF1F5F9)
+            )
+        )
+    }
+
+    val cardBorder = if (isDark) {
+        BorderStroke(1.dp, Color(0xFF334155).copy(alpha = 0.8f))
+    } else {
+        BorderStroke(1.dp, Color(0xFFCBD5E1))
+    }
+
+    val primaryTextColor = if (isDark) Color.White else Color(0xFF0F172A)
+    val secondaryTextColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)
+    val pillBgColor = if (isDark) Color(0xFF1E293B) else Color(0xFF0F172A).copy(alpha = 0.06f)
 
     Card(
         modifier = modifier
             .fillMaxWidth()
             .testTag("hero_balance_card"),
         shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(
-            1.dp,
-            if (isDark) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-        ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isDark) {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-            } else {
-                MaterialTheme.colorScheme.surface
-            }
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 2.dp else 3.dp)
+        border = cardBorder,
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 4.dp else 2.dp)
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(cardBrush)
                 .padding(20.dp)
         ) {
-            // Top Row: Title badge on left, Eye toggle on the far right
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // Top Row: Brand & EMV Chip Emblem on left, Eye toggle on the far right
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(
-                            if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                            else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                        )
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(IncomeGreen)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (isBengali) "মোট ব্যালেন্স" else "Total Balance",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Stylized EMV Financial Card Chip Element
+                        Box(
+                            modifier = Modifier
+                                .size(width = 32.dp, height = 24.dp)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = listOf(
+                                            Color(0xFFF59E0B),
+                                            Color(0xFFD97706),
+                                            Color(0xFFB45309)
+                                        )
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(width = 24.dp, height = 16.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(Color(0xFFB45309).copy(alpha = 0.35f))
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(pillBgColor)
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(EmeraldPrimary)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "AMAR HISHAB PRIME",
+                                style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
+                            )
+                        }
+                    }
+
+                    // Eye button with full 48dp touch target
+                    if (onToggleHideBalance != null) {
+                        IconButton(
+                            onClick = onToggleHideBalance,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .testTag("toggle_hide_balance_button")
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = pillBgColor,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = if (isBalanceHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = if (isBalanceHidden) "Show Balance" else "Hide Balance",
+                                        tint = secondaryTextColor,
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
-                // Eye button on the right with full 48dp touch target
-                if (onToggleHideBalance != null) {
-                    IconButton(
-                        onClick = onToggleHideBalance,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .testTag("toggle_hide_balance_button")
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Label & Main Balance
+                Text(
+                    text = if (isBengali) "মোট সার্বিক ব্যালেন্স" else "Total Net Balance",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = secondaryTextColor
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = if (isBalanceHidden) "৳ ••••••" else CurrencyFormatter.format(totalBalance, isBengali),
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontSize = 34.sp,
+                        letterSpacing = if (isBalanceHidden) 3.sp else (-0.5).sp
+                    ),
+                    fontWeight = FontWeight.ExtraBold,
+                    color = primaryTextColor
+                )
+
+                Text(
+                    text = if (isBengali) "উপলব্ধ অথেনটিকেটেড তহবিল" else "Authoritative Net Available Funds",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = secondaryTextColor.copy(alpha = 0.85f)
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Income & Expense Split Cards (Theme adaptive)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Income sub-card
+                    val incomeCardBg = if (isDark) Color(0xFF064E3B).copy(alpha = 0.45f) else Color(0xFFECFDF5)
+                    val incomeBorder = if (isDark) BorderStroke(1.dp, IncomeGreen.copy(alpha = 0.35f)) else BorderStroke(1.dp, Color(0xFFA7F3D0))
+                    val incomeValColor = if (isDark) Color(0xFF86EFAC) else Color(0xFF065F46)
+
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(16.dp),
+                        color = incomeCardBg,
+                        border = incomeBorder
                     ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = if (isDark) MaterialTheme.colorScheme.surfaceVariant
-                                    else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                            modifier = Modifier.size(36.dp)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(IncomeGreen.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Icon(
-                                    imageVector = if (isBalanceHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = if (isBalanceHidden) "Show Balance" else "Hide Balance",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
+                                    imageVector = Icons.Default.ArrowDownward,
+                                    contentDescription = null,
+                                    tint = IncomeGreen,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = if (isBengali) "মোট আয়" else "Income",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isDark) Color(0xFF94A3B8) else Color(0xFF047857)
+                                )
+                                Text(
+                                    text = if (isBalanceHidden) "••••" else CurrencyFormatter.format(totalIncome, isBengali),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = incomeValColor,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+
+                    // Expense sub-card
+                    val expenseCardBg = if (isDark) Color(0xFF7F1D1D).copy(alpha = 0.45f) else Color(0xFFFEF2F2)
+                    val expenseBorder = if (isDark) BorderStroke(1.dp, ExpenseRed.copy(alpha = 0.35f)) else BorderStroke(1.dp, Color(0xFFFECACA))
+                    val expenseValColor = if (isDark) Color(0xFFFCA5A5) else Color(0xFF991B1B)
+
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(16.dp),
+                        color = expenseCardBg,
+                        border = expenseBorder
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(ExpenseRed.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowUpward,
+                                    contentDescription = null,
+                                    tint = ExpenseRed,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = if (isBengali) "মোট ব্যয়" else "Expense",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isDark) Color(0xFF94A3B8) else Color(0xFFB91C1C)
+                                )
+                                Text(
+                                    text = if (isBalanceHidden) "••••" else CurrencyFormatter.format(totalExpense, isBengali),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = expenseValColor,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-            // Main Balance Display
-            Text(
-                text = if (isBalanceHidden) "৳ ••••••" else CurrencyFormatter.format(totalBalance, isBengali),
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontSize = 34.sp,
-                    letterSpacing = if (isBalanceHidden) 3.sp else (-0.5).sp
-                ),
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Text(
-                text = if (isBengali) "উপলব্ধ সার্বিক আর্থিক ব্যালেন্স" else "Authoritative Net Available Balance",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-            )
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Income & Expense Split Cards (Clean and Theme adaptive)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Income sub-card
-                Surface(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (isDark) {
-                        IncomeGreen.copy(alpha = 0.12f)
-                    } else {
-                        IncomeGreen.copy(alpha = 0.08f)
-                    },
-                    border = BorderStroke(
-                        1.dp,
-                        if (isDark) IncomeGreen.copy(alpha = 0.25f)
-                        else IncomeGreen.copy(alpha = 0.2f)
-                    )
+                // Quick Action Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(IncomeGreen.copy(alpha = 0.2f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowDownward,
-                                contentDescription = null,
-                                tint = IncomeGreen,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = if (isBengali) "মোট আয়" else "Income",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = if (isBalanceHidden) "••••" else CurrencyFormatter.format(totalIncome, isBengali),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-
-                // Expense sub-card
-                Surface(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (isDark) {
-                        ExpenseRed.copy(alpha = 0.12f)
-                    } else {
-                        ExpenseRed.copy(alpha = 0.08f)
-                    },
-                    border = BorderStroke(
-                        1.dp,
-                        if (isDark) ExpenseRed.copy(alpha = 0.25f)
-                        else ExpenseRed.copy(alpha = 0.2f)
+                    QuickActionPill(
+                        label = if (isBengali) "আয়" else "Income",
+                        icon = Icons.Default.Add,
+                        onClick = onIncomeClick,
+                        modifier = Modifier.weight(1f),
+                        testTag = "hero_income_btn",
+                        accentColor = IncomeGreen,
+                        isDark = isDark
                     )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(ExpenseRed.copy(alpha = 0.2f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowUpward,
-                                contentDescription = null,
-                                tint = ExpenseRed,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = if (isBengali) "মোট ব্যয়" else "Expense",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = if (isBalanceHidden) "••••" else CurrencyFormatter.format(totalExpense, isBengali),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
+                    QuickActionPill(
+                        label = if (isBengali) "ব্যয়" else "Expense",
+                        icon = Icons.Default.Remove,
+                        onClick = onExpenseClick,
+                        modifier = Modifier.weight(1f),
+                        testTag = "hero_expense_btn",
+                        accentColor = ExpenseRed,
+                        isDark = isDark
+                    )
+                    QuickActionPill(
+                        label = if (isBengali) "ট্রান্সফার" else "Transfer",
+                        icon = Icons.Default.SyncAlt,
+                        onClick = onTransferClick,
+                        modifier = Modifier.weight(1.1f),
+                        testTag = "hero_transfer_btn",
+                        accentColor = Color(0xFF0284C7),
+                        isDark = isDark
+                    )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Quick Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                QuickActionPill(
-                    label = if (isBengali) "আয়" else "Income",
-                    icon = Icons.Default.Add,
-                    onClick = onIncomeClick,
-                    modifier = Modifier.weight(1f),
-                    testTag = "hero_income_btn",
-                    accentColor = IncomeGreen
-                )
-                QuickActionPill(
-                    label = if (isBengali) "ব্যয়" else "Expense",
-                    icon = Icons.Default.Remove,
-                    onClick = onExpenseClick,
-                    modifier = Modifier.weight(1f),
-                    testTag = "hero_expense_btn",
-                    accentColor = ExpenseRed
-                )
-                QuickActionPill(
-                    label = if (isBengali) "ট্রান্সফার" else "Transfer",
-                    icon = Icons.Default.SyncAlt,
-                    onClick = onTransferClick,
-                    modifier = Modifier.weight(1.1f),
-                    testTag = "hero_transfer_btn",
-                    accentColor = TransferBlue
-                )
             }
         }
     }
@@ -575,7 +625,8 @@ fun QuickActionPill(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     testTag: String = "quick_pill",
-    accentColor: Color = Color.White
+    accentColor: Color = Color.White,
+    isDark: Boolean = true
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -585,6 +636,10 @@ fun QuickActionPill(
         label = "pill_scale"
     )
 
+    val surfaceBg = if (isDark) Color.White.copy(alpha = 0.12f) else Color(0xFFF8FAFC)
+    val surfaceBorder = if (isDark) Color.White.copy(alpha = 0.18f) else Color(0xFFCBD5E1)
+    val textColor = if (isDark) Color.White else Color(0xFF0F172A)
+
     Surface(
         onClick = onClick,
         interactionSource = interactionSource,
@@ -593,8 +648,8 @@ fun QuickActionPill(
             .scale(animatedScale)
             .testTag(testTag),
         shape = RoundedCornerShape(12.dp),
-        color = Color.White.copy(alpha = 0.12f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f))
+        color = surfaceBg,
+        border = BorderStroke(1.dp, surfaceBorder)
     ) {
         Row(
             modifier = Modifier
@@ -615,8 +670,8 @@ fun QuickActionPill(
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                color = textColor,
                 maxLines = 1
             )
         }

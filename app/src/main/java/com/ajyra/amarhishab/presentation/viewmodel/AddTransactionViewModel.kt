@@ -73,6 +73,62 @@ class AddTransactionViewModel(
         }
     }
 
+    suspend fun getTransactionById(id: String): com.ajyra.amarhishab.model.Transaction? {
+        return financeRepository.getTransactionById(id)
+    }
+
+    fun updateTransaction(
+        id: String,
+        type: TransactionType,
+        amountStr: String,
+        category: String,
+        accountCode: String,
+        toAccountCode: String? = null,
+        dateStr: String,
+        description: String? = null
+    ) {
+        val amount = amountStr.toDoubleOrNull()
+        if (amount == null || amount <= 0.0) {
+            _saveState.value = SaveState.Error(
+                messageEn = "Please enter a valid amount greater than zero.",
+                messageBn = "অনুগ্রহ করে শূন্যের বেশি সঠিক পরিমাণ টাকা উল্লেখ করুন।"
+            )
+            return
+        }
+        if (type != TransactionType.TRANSFER && category.isBlank()) {
+            _saveState.value = SaveState.Error(
+                messageEn = "Please select a category.",
+                messageBn = "অনুগ্রহ করে একটি খাত নির্বাচন করুন।"
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            _saveState.value = SaveState.Saving
+            when (val res = financeRepository.updateTransaction(
+                id = id,
+                type = type,
+                amount = amount,
+                category = category,
+                accountCode = accountCode,
+                toAccountCode = toAccountCode,
+                date = dateStr,
+                description = description
+            )) {
+                is NetworkResult.Success -> {
+                    _saveState.value = SaveState.Success
+                }
+                is NetworkResult.Error -> {
+                    _saveState.value = SaveState.Error(
+                        messageEn = res.messageEn,
+                        messageBn = res.messageBn
+                    )
+                }
+                NetworkResult.Loading -> {}
+            }
+        }
+    }
+
     fun resetState() {
         _saveState.value = SaveState.Idle
     }

@@ -6,6 +6,7 @@ import com.ajyra.amarhishab.data.local.EncryptedSessionManager
 import com.ajyra.amarhishab.data.repository.FinanceRepository
 import com.ajyra.amarhishab.model.CategoryExpense
 import com.ajyra.amarhishab.model.FinancialSummary
+import com.ajyra.amarhishab.model.MonthlyComparison
 import com.ajyra.amarhishab.model.SavingsGoal
 import com.ajyra.amarhishab.model.Transaction
 import com.ajyra.amarhishab.model.User
@@ -26,6 +27,14 @@ class DashboardViewModel(
     val currentUser: StateFlow<User?> = sessionManager?.currentUser
         ?: MutableStateFlow<User?>(null).asStateFlow()
 
+    val activeWorkspace: StateFlow<com.ajyra.amarhishab.model.Workspace> = sessionManager?.currentWorkspace
+        ?: MutableStateFlow(com.ajyra.amarhishab.model.Workspace.PERSONAL).asStateFlow()
+
+    fun switchWorkspace(workspace: com.ajyra.amarhishab.model.Workspace) {
+        sessionManager?.setWorkspace(workspace)
+        refresh()
+    }
+
     val isBalanceHidden: StateFlow<Boolean> = sessionManager?.isBalanceHidden
         ?: MutableStateFlow(false).asStateFlow()
 
@@ -40,6 +49,13 @@ class DashboardViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000L),
             initialValue = FinancialSummary()
+        )
+
+    val monthlyComparison: StateFlow<MonthlyComparison> = financeRepository.getMonthlyComparison()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000L),
+            initialValue = MonthlyComparison()
         )
 
     val recentTransactions: StateFlow<List<Transaction>> = financeRepository.getRecentTransactions(8)

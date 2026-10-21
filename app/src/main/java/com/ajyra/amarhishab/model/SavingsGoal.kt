@@ -22,7 +22,8 @@ data class SavingsGoal(
     val description: String? = null,
     val iconCategory: String? = "general",
     val isActiveOnDashboard: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val workspace: String = "PERSONAL"
 ) {
     val remainingAmount: Double
         get() = max(0.0, targetAmount - savedAmount)

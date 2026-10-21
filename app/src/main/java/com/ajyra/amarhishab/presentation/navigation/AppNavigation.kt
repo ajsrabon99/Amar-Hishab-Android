@@ -30,6 +30,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.ajyra.amarhishab.presentation.screens.AddTransactionScreen
 import com.ajyra.amarhishab.presentation.screens.CustomCategoriesScreen
+import com.ajyra.amarhishab.presentation.screens.EditTransactionScreen
 import com.ajyra.amarhishab.presentation.screens.HomeScreen
 import com.ajyra.amarhishab.presentation.screens.ImportDataScreen
 import com.ajyra.amarhishab.presentation.screens.NotificationScreen
@@ -37,6 +38,7 @@ import com.ajyra.amarhishab.presentation.screens.ProfileScreen
 import com.ajyra.amarhishab.presentation.screens.ReportsScreen
 import com.ajyra.amarhishab.presentation.screens.SavingsGoalsScreen
 import com.ajyra.amarhishab.presentation.screens.SettingsScreen
+import com.ajyra.amarhishab.presentation.screens.SmartSpendingScreen
 import com.ajyra.amarhishab.presentation.screens.StatementScreen
 import com.ajyra.amarhishab.presentation.screens.TransactionsScreen
 import com.ajyra.amarhishab.presentation.screens.TransferScreen
@@ -47,6 +49,7 @@ import com.ajyra.amarhishab.presentation.viewmodel.ProfileViewModel
 import com.ajyra.amarhishab.presentation.viewmodel.ReportsViewModel
 import com.ajyra.amarhishab.presentation.viewmodel.SavingsGoalsViewModel
 import com.ajyra.amarhishab.presentation.viewmodel.SettingsViewModel
+import com.ajyra.amarhishab.presentation.viewmodel.SmartSpendingViewModel
 import com.ajyra.amarhishab.presentation.viewmodel.TransactionsViewModel
 import com.ajyra.amarhishab.presentation.viewmodel.TransferViewModel
 import com.ajyra.amarhishab.presentation.viewmodel.ViewModelFactory
@@ -74,6 +77,7 @@ fun AppNavigation(
     val settingsViewModel: SettingsViewModel = viewModel(factory = factory)
     val notificationViewModel: NotificationViewModel = viewModel(factory = factory)
     val savingsGoalsViewModel: SavingsGoalsViewModel = viewModel(factory = factory)
+    val smartSpendingViewModel: SmartSpendingViewModel = viewModel(factory = factory)
 
     val language by profileViewModel.language.collectAsState()
     val isBengali = language == "bn"
@@ -185,6 +189,10 @@ fun AppNavigation(
                     onNavigateToSavingsGoals = {
                         navController.navigate(Screen.SavingsGoals.route)
                     },
+                    smartSpendingViewModel = smartSpendingViewModel,
+                    onNavigateToSmartSpending = {
+                        navController.navigate(Screen.SmartSpending.route)
+                    },
                     onNavigateToAddTransaction = { isExpense ->
                         navController.navigate(Screen.AddTransaction.createRoute(isExpense))
                     },
@@ -202,6 +210,9 @@ fun AppNavigation(
                     isBengali = isBengali,
                     onNavigateToAddTransaction = { isExpense ->
                         navController.navigate(Screen.AddTransaction.createRoute(isExpense))
+                    },
+                    onNavigateToEditTransaction = { transactionId ->
+                        navController.navigate(Screen.EditTransaction.createRoute(transactionId))
                     }
                 )
             }
@@ -233,6 +244,9 @@ fun AppNavigation(
                     },
                     onNavigateToCustomCategories = {
                         navController.navigate(Screen.CustomCategories.route)
+                    },
+                    onDataRestored = {
+                        dashboardViewModel.refresh()
                     }
                 )
             }
@@ -251,6 +265,18 @@ fun AppNavigation(
                 AddTransactionScreen(
                     viewModel = addTransactionViewModel,
                     initialIsExpense = isExpense,
+                    isBengali = isBengali,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = Screen.EditTransaction.route,
+                arguments = listOf(navArgument("transactionId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val transactionId = backStackEntry.arguments?.getString("transactionId") ?: ""
+                EditTransactionScreen(
+                    transactionId = transactionId,
+                    viewModel = addTransactionViewModel,
                     isBengali = isBengali,
                     onNavigateBack = { navController.popBackStack() }
                 )
@@ -287,6 +313,13 @@ fun AppNavigation(
             composable(Screen.SavingsGoals.route) {
                 SavingsGoalsScreen(
                     viewModel = savingsGoalsViewModel,
+                    isBengali = isBengali,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.SmartSpending.route) {
+                SmartSpendingScreen(
+                    viewModel = smartSpendingViewModel,
                     isBengali = isBengali,
                     onNavigateBack = { navController.popBackStack() }
                 )

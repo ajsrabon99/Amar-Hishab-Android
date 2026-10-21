@@ -35,6 +35,7 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        com.ajyra.amarhishab.analytics.AnalyticsManager.initialize(applicationContext)
         val sessionManager = EncryptedSessionManager.getInstance(applicationContext)
 
         setContent {

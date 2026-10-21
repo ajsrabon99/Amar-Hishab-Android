@@ -1,10 +1,14 @@
 package com.ajyra.amarhishab.presentation.screens
 
 import android.graphics.BitmapFactory
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,22 +26,33 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -45,6 +60,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -73,8 +89,10 @@ import com.ajyra.amarhishab.presentation.components.AccountBalancePill
 import com.ajyra.amarhishab.presentation.components.DashboardSkeleton
 import com.ajyra.amarhishab.presentation.components.EmptyStateView
 import com.ajyra.amarhishab.presentation.components.HeroBalanceCard
+import com.ajyra.amarhishab.presentation.components.SmartSpendingCard
 import com.ajyra.amarhishab.presentation.components.TransactionRowItem
 import com.ajyra.amarhishab.presentation.viewmodel.DashboardViewModel
+import com.ajyra.amarhishab.presentation.viewmodel.SmartSpendingViewModel
 import com.ajyra.amarhishab.ui.theme.EmeraldPrimary
 import com.ajyra.amarhishab.ui.theme.ExpenseRed
 import com.ajyra.amarhishab.ui.theme.FintechPrimary
@@ -95,11 +113,14 @@ fun HomeScreen(
     onNavigateToImportData: () -> Unit = {},
     onNavigateToCustomCategories: () -> Unit = {},
     onNavigateToSavingsGoals: () -> Unit = {},
+    smartSpendingViewModel: SmartSpendingViewModel? = null,
+    onNavigateToSmartSpending: () -> Unit = {},
     onNavigateToAddTransaction: (isExpense: Boolean) -> Unit,
     onNavigateToTransfer: () -> Unit,
     onNavigateToTransactions: () -> Unit
 ) {
     val summary by dashboardViewModel.summary.collectAsState()
+    val monthlyComparison by dashboardViewModel.monthlyComparison.collectAsState()
     val recentTransactions by dashboardViewModel.recentTransactions.collectAsState()
     val categoryExpenses by dashboardViewModel.categoryExpenses.collectAsState()
     val activeGoal by dashboardViewModel.activeSavingsGoal.collectAsState()
@@ -107,8 +128,11 @@ fun HomeScreen(
     val isInitialLoading by dashboardViewModel.isInitialLoading.collectAsState()
     val syncMessage by dashboardViewModel.syncMessage.collectAsState()
     val currentUser by dashboardViewModel.currentUser.collectAsState()
+    val activeWorkspace by dashboardViewModel.activeWorkspace.collectAsState()
     val isBalanceHidden by dashboardViewModel.isBalanceHidden.collectAsState()
+    val smartSpendingSummary by (smartSpendingViewModel?.summary ?: remember { kotlinx.coroutines.flow.MutableStateFlow(com.ajyra.amarhishab.model.SmartSpendingSummary()) }).collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showWorkspaceSwitchDialog by remember { mutableStateOf(false) }
 
     val avatarUri = currentUser?.avatarUri
     val avatarBitmap = remember(avatarUri) {
@@ -137,7 +161,8 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable { onNavigateToProfile() }
+                            .clickable { showWorkspaceSwitchDialog = true }
+                            .testTag("dashboard_profile_avatar")
                     ) {
                         if (avatarBitmap != null) {
                             Image(
@@ -159,14 +184,31 @@ fun HomeScreen(
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = if (activeWorkspace == com.ajyra.amarhishab.model.Workspace.BUSINESS) {
+                                        if (isBengali) "ব্যবসায়িক হিসাব" else "Business Account"
+                                    } else {
+                                        currentUser?.displayName?.ifBlank { null } ?: (if (isBengali) "ব্যক্তিগত হিসাব" else "Personal Account")
+                                    },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EmeraldPrimary
+                                )
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Switch Account",
+                                    tint = EmeraldPrimary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                             Text(
-                                text = currentUser?.displayName?.ifBlank { null } ?: (if (isBengali) "আমার হিসাব" else "Amar Hishab"),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = EmeraldPrimary
-                            )
-                            Text(
-                                text = if (isBengali) "আর্থিক ড্যাশবোর্ড" else "Financial Dashboard",
+                                text = if (activeWorkspace == com.ajyra.amarhishab.model.Workspace.BUSINESS) {
+                                    if (isBengali) "ব্যবসায়িক ড্যাশবোর্ড" else "Business Dashboard"
+                                } else {
+                                    if (isBengali) "ব্যক্তিগত ড্যাশবোর্ড" else "Personal Dashboard"
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -272,38 +314,53 @@ fun HomeScreen(
             // Quick Tools Hub (Savings Goals, Statement, Import)
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Max),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     // Savings Goals Tool
                     Card(
                         modifier = Modifier
                             .weight(1f)
+                            .fillMaxHeight()
+                            .defaultMinSize(minHeight = 92.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .clickable { onNavigateToSavingsGoals() }
                             .testTag("quick_tool_savings_goals"),
                         shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column(
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(38.dp)
                                     .clip(CircleShape)
                                     .background(FintechPrimary.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.Savings, contentDescription = null, tint = FintechPrimary, modifier = Modifier.size(18.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Savings,
+                                    contentDescription = null,
+                                    tint = FintechPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = if (isBengali) "সঞ্চয় লক্ষ্য" else "Goals",
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                maxLines = 1
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
                         }
                     }
@@ -312,31 +369,44 @@ fun HomeScreen(
                     Card(
                         modifier = Modifier
                             .weight(1f)
+                            .fillMaxHeight()
+                            .defaultMinSize(minHeight = 92.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .clickable { onNavigateToStatement() }
                             .testTag("quick_tool_statement"),
                         shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column(
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(38.dp)
                                     .clip(CircleShape)
                                     .background(EmeraldPrimary.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = EmeraldPrimary, modifier = Modifier.size(18.dp))
+                                Icon(
+                                    imageVector = Icons.Default.PictureAsPdf,
+                                    contentDescription = null,
+                                    tint = EmeraldPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = if (isBengali) "স্টেটমেন্ট" else "Statement",
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                maxLines = 1
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
                         }
                     }
@@ -345,35 +415,57 @@ fun HomeScreen(
                     Card(
                         modifier = Modifier
                             .weight(1f)
+                            .fillMaxHeight()
+                            .defaultMinSize(minHeight = 92.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .clickable { onNavigateToImportData() }
                             .testTag("quick_tool_import"),
                         shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column(
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(38.dp)
                                     .clip(CircleShape)
                                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.FileUpload, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                                Icon(
+                                    imageVector = Icons.Default.FileUpload,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = if (isBengali) "ইমপোর্ট" else "Import",
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                maxLines = 1
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
                         }
                     }
                 }
+            }
+
+            // Smart Spending Planner Card
+            item {
+                SmartSpendingCard(
+                    summary = smartSpendingSummary,
+                    isBengali = isBengali,
+                    onViewDetails = onNavigateToSmartSpending
+                )
             }
 
             // Dashboard Active Savings Goal Card
@@ -625,6 +717,137 @@ fun HomeScreen(
                 }
             }
 
+            // Monthly Comparison Section (This Month vs Previous Month)
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("dashboard_monthly_comparison"),
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(FintechPrimary.copy(alpha = 0.12f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.CompareArrows,
+                                        contentDescription = null,
+                                        tint = FintechPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = if (isBengali) "মাসিক তুলনা" else "Monthly Comparison",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = if (isBengali) "চলতি বনাম পূর্ববর্তী মাস" else "This Month vs Previous Month",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            if (monthlyComparison.thisMonthTxCount > 0 || monthlyComparison.prevMonthTxCount > 0) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                                ) {
+                                    Text(
+                                        text = if (isBengali) "${monthlyComparison.thisMonthTxCount} টি লেনদেন" else "${monthlyComparison.thisMonthTxCount} txns",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Income Comparison Row
+                        MonthlyComparisonRow(
+                            title = if (isBengali) "আয়" else "Income",
+                            thisMonthAmount = monthlyComparison.thisMonthIncome,
+                            prevMonthAmount = monthlyComparison.prevMonthIncome,
+                            changePct = monthlyComparison.incomeChangePct,
+                            isIncome = true,
+                            isBengali = isBengali
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Expense Comparison Row
+                        MonthlyComparisonRow(
+                            title = if (isBengali) "ব্যয়" else "Expense",
+                            thisMonthAmount = monthlyComparison.thisMonthExpense,
+                            prevMonthAmount = monthlyComparison.prevMonthExpense,
+                            changePct = monthlyComparison.expenseChangePct,
+                            isIncome = false,
+                            isBengali = isBengali
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Net Remaining
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = if (isBengali) "অবশিষ্ট সঞ্চয়" else "Net Remaining",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = CurrencyFormatter.format(monthlyComparison.thisMonthNet, isBengali),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (monthlyComparison.thisMonthNet >= 0) IncomeGreen else ExpenseRed
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = if (isBengali) "পূর্বের মাস: ${CurrencyFormatter.format(monthlyComparison.prevMonthNet, true)}"
+                                    else "Prev Month: ${CurrencyFormatter.format(monthlyComparison.prevMonthNet, false)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                val netSign = if (monthlyComparison.netChangePct > 0) "+" else ""
+                                val netColor = if (monthlyComparison.thisMonthNet >= monthlyComparison.prevMonthNet) IncomeGreen else ExpenseRed
+                                Text(
+                                    text = "$netSign${String.format("%.1f", monthlyComparison.netChangePct)}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = netColor
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Expense Summary by Category
             if (categoryExpenses.isNotEmpty()) {
                 item {
@@ -768,6 +991,245 @@ fun HomeScreen(
             }
         }
     }
+    }
 }
+
+    if (showWorkspaceSwitchDialog) {
+        AlertDialog(
+            onDismissRequest = { showWorkspaceSwitchDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.AccountBalance,
+                        contentDescription = null,
+                        tint = EmeraldPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isBengali) "হিসাবের ধরন পরিবর্তন" else "Switch Workspace",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = if (isBengali)
+                            "ব্যক্তিগত ও ব্যবসায়িক হিসাব সম্পূর্ণ আলাদা। প্রতিটি হিসাবের নিজস্ব ব্যালেন্স, রিপোর্ট ও লেনদেন সুরক্ষিত থাকে।"
+                        else
+                            "Personal and Business accounts remain strictly separate. Each workspace maintains its own isolated balances and records.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Personal Account Card
+                    val isPersonalSelected = activeWorkspace == com.ajyra.amarhishab.model.Workspace.PERSONAL
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable {
+                                dashboardViewModel.switchWorkspace(com.ajyra.amarhishab.model.Workspace.PERSONAL)
+                                showWorkspaceSwitchDialog = false
+                            }
+                            .testTag("switch_to_personal_workspace"),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isPersonalSelected) EmeraldPrimary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
+                        ),
+                        border = if (isPersonalSelected) BorderStroke(1.5.dp, EmeraldPrimary) else BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isPersonalSelected) EmeraldPrimary else MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = if (isPersonalSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (isBengali) "ব্যক্তিগত হিসাব" else "Personal Account",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isPersonalSelected) EmeraldPrimary else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = if (isBengali) "দৈনন্দিন খরচ, ব্যক্তিগত সঞ্চয় ও বাজেট" else "Personal expenses, savings & daily budget",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (isPersonalSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Active",
+                                    tint = EmeraldPrimary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Business Account Card
+                    val isBusinessSelected = activeWorkspace == com.ajyra.amarhishab.model.Workspace.BUSINESS
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable {
+                                dashboardViewModel.switchWorkspace(com.ajyra.amarhishab.model.Workspace.BUSINESS)
+                                showWorkspaceSwitchDialog = false
+                            }
+                            .testTag("switch_to_business_workspace"),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isBusinessSelected) EmeraldPrimary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
+                        ),
+                        border = if (isBusinessSelected) BorderStroke(1.5.dp, EmeraldPrimary) else BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isBusinessSelected) EmeraldPrimary else MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Business,
+                                    contentDescription = null,
+                                    tint = if (isBusinessSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (isBengali) "ব্যবসায়িক হিসাব" else "Business Account",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isBusinessSelected) EmeraldPrimary else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = if (isBengali) "ব্যবসায়ের নগদ প্রবাহ, আয় ও বাণিজ্যিক খরচ" else "Business cashflow, revenues & trade expenses",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (isBusinessSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Active",
+                                    tint = EmeraldPrimary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showWorkspaceSwitchDialog = false
+                        onNavigateToProfile()
+                    }
+                ) {
+                    Text(
+                        text = if (isBengali) "প্রোফাইল পরিচালনা" else "Manage Profile",
+                        color = EmeraldPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showWorkspaceSwitchDialog = false }) {
+                    Text(if (isBengali) "বাতিল" else "Cancel")
+                }
+            }
+        )
+    }
 }
+
+@Composable
+private fun MonthlyComparisonRow(
+    title: String,
+    thisMonthAmount: Double,
+    prevMonthAmount: Double,
+    changePct: Double,
+    isIncome: Boolean,
+    isBengali: Boolean
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "${if (isBengali) "চলতি মাস: " else "This Month: "}${CurrencyFormatter.format(thisMonthAmount, isBengali)}",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = if (isIncome) IncomeGreen else ExpenseRed
+            )
+            Text(
+                text = "${if (isBengali) "পূর্বের মাস: " else "Prev Month: "}${CurrencyFormatter.format(prevMonthAmount, isBengali)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        val sign = if (changePct > 0) "+" else ""
+        val pctStr = "$sign${String.format("%.1f", changePct)}%"
+        val displayPct = if (isBengali) CurrencyFormatter.toBengaliDigits(pctStr) else pctStr
+
+        val badgeColor = if (isIncome) {
+            if (changePct >= 0) IncomeGreen else ExpenseRed
+        } else {
+            if (changePct <= 0) IncomeGreen else ExpenseRed
+        }
+
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = badgeColor.copy(alpha = 0.14f)
+        ) {
+            Text(
+                text = displayPct,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = badgeColor,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
+    }
 }
+
