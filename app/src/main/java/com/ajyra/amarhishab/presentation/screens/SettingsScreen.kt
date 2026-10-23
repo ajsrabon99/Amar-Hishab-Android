@@ -3,6 +3,7 @@ package com.ajyra.amarhishab.presentation.screens
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import com.ajyra.amarhishab.analytics.AnalyticsManager
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -146,6 +147,7 @@ fun SettingsScreen(
     var showThemeDialog by remember { mutableStateOf(false) }
     var showReleaseNotesDialog by remember { mutableStateOf(false) }
     var showHelpDialog by remember { mutableStateOf(false) }
+    var showDonationDialog by remember { mutableStateOf(false) }
     var isChecking3DUpdate by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
@@ -189,12 +191,17 @@ fun SettingsScreen(
             backupError = null
             try {
                 val db = AmarHishabDatabase.getInstance(context)
+                val ws = com.ajyra.amarhishab.data.local.EncryptedSessionManager.getInstance(context).getSavedWorkspace().id.lowercase()
                 val zipFile = DataBackupService.createBackup(
                     context = context,
                     dao = db.transactionDao(),
                     goalDao = db.savingsGoalDao()
                 )
                 DataBackupService.shareBackupFile(context, zipFile, isBengali)
+                AnalyticsManager.logEvent(
+                    AnalyticsManager.EVENT_BACKUP_CREATED,
+                    mapOf(AnalyticsManager.PARAM_WORKSPACE to ws)
+                )
                 snackbarHostState.showSnackbar(
                     if (isBengali) "ব্যাকআপ ফাইল সফলভাবে তৈরি হয়েছে" else "Backup .ZIP created successfully"
                 )
@@ -212,6 +219,7 @@ fun SettingsScreen(
             backupError = null
             try {
                 val db = AmarHishabDatabase.getInstance(context)
+                val ws = com.ajyra.amarhishab.data.local.EncryptedSessionManager.getInstance(context).getSavedWorkspace().id.lowercase()
                 val result = DataBackupService.restoreBackup(
                     context = context,
                     uri = uri,
@@ -223,6 +231,10 @@ fun SettingsScreen(
                 pendingRestoreUri = null
                 restoreResult = result
                 if (result.success) {
+                    AnalyticsManager.logEvent(
+                        AnalyticsManager.EVENT_RESTORE_COMPLETED,
+                        mapOf(AnalyticsManager.PARAM_WORKSPACE to ws)
+                    )
                     onDataRestored()
                 }
             } catch (e: Exception) {
@@ -493,6 +505,155 @@ fun SettingsScreen(
                     Text(if (isBengali) "ঠিক আছে" else "Close")
                 }
             }
+        )
+    }
+
+    if (showDonationDialog) {
+        val donationNumber = "01327206804"
+        AlertDialog(
+            onDismissRequest = { showDonationDialog = false },
+            title = {
+                Text(
+                    text = if (isBengali) "অনুদান" else "Donation",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Option 1: Donate in bKash
+                    Surface(
+                        onClick = {
+                            showDonationDialog = false
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Donation Number", donationNumber))
+
+                            val pm = context.packageManager
+                            val packages = listOf("com.bKash.customerapp", "com.bkash.customerapp")
+                            var launched = false
+                            for (pkg in packages) {
+                                val intent = pm.getLaunchIntentForPackage(pkg)
+                                if (intent != null) {
+                                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    try {
+                                        context.startActivity(intent)
+                                        launched = true
+                                        break
+                                    } catch (_: Exception) {}
+                                }
+                            }
+
+                            scope.launch {
+                                if (launched) {
+                                    snackbarHostState.showSnackbar(
+                                        if (isBengali) "বিকাশ নম্বর কপি হয়েছে" else "bKash number copied"
+                                    )
+                                } else {
+                                    snackbarHostState.showSnackbar(
+                                        if (isBengali) "বিকাশ অ্যাপ ইনস্টল করা নেই। নম্বর $donationNumber কপি করা হয়েছে।" else "bKash is not installed. Number $donationNumber copied."
+                                    )
+                                }
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFE2136E).copy(alpha = 0.08f),
+                        border = BorderStroke(1.dp, Color(0xFFE2136E).copy(alpha = 0.35f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = if (isBengali) "বিকাশে অনুদান পাঠান" else "Donate in bKash",
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = null,
+                                tint = Color(0xFFE2136E),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    // Option 2: Donate in Nagad
+                    Surface(
+                        onClick = {
+                            showDonationDialog = false
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Donation Number", donationNumber))
+
+                            val pm = context.packageManager
+                            val packages = listOf("com.konasl.nagad", "com.konasl.nagad.customer")
+                            var launched = false
+                            for (pkg in packages) {
+                                val intent = pm.getLaunchIntentForPackage(pkg)
+                                if (intent != null) {
+                                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    try {
+                                        context.startActivity(intent)
+                                        launched = true
+                                        break
+                                    } catch (_: Exception) {}
+                                }
+                            }
+
+                            scope.launch {
+                                if (launched) {
+                                    snackbarHostState.showSnackbar(
+                                        if (isBengali) "নগদ নম্বর কপি হয়েছে" else "Nagad number copied"
+                                    )
+                                } else {
+                                    snackbarHostState.showSnackbar(
+                                        if (isBengali) "নগদ অ্যাপ ইনস্টল করা নেই। নম্বর $donationNumber কপি করা হয়েছে।" else "Nagad is not installed. Number $donationNumber copied."
+                                    )
+                                }
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF7941D).copy(alpha = 0.08f),
+                        border = BorderStroke(1.dp, Color(0xFFF7941D).copy(alpha = 0.35f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = if (isBengali) "নগদে অনুদান পাঠান" else "Donate in Nagad",
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = null,
+                                tint = Color(0xFFF7941D),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showDonationDialog = false }) {
+                    Text(if (isBengali) "বাতিল" else "Cancel")
+                }
+            },
+            shape = RoundedCornerShape(18.dp)
         )
     }
 
@@ -844,6 +1005,41 @@ fun SettingsScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
+                            if (analysis.hasProfileData) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = if (isBengali) "প্রোফাইল ও ছবি:" else "Profile & Photo:",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = if (analysis.hasProfilePhoto) "${analysis.profileName} (ছবি সহ)" else analysis.profileName.ifBlank { "সংযুক্ত" },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                            if (analysis.hasSettings || analysis.hasSmartSpending) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = if (isBengali) "অ্যাপ সেটিংস ও লিমিট:" else "Settings & Planner Limits:",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = if (isBengali) "অন্তর্ভুক্ত" else "Included",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = EmeraldPrimary
+                                    )
+                                }
+                            }
                         }
                     }
                     Text(
@@ -952,6 +1148,42 @@ fun SettingsScreen(
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                     Text("${result.goalsRestored}", fontWeight = FontWeight.Bold)
+                                }
+                                if (result.profileRestored) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = if (isBengali) "প্রোফাইল ও ছবি:" else "Profile & Photo:",
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                        Text(if (isBengali) "পুনরুদ্ধারকৃত" else "Restored", fontWeight = FontWeight.Bold, color = IncomeGreen)
+                                    }
+                                }
+                                if (result.settingsRestored) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = if (isBengali) "ব্যবহারকারী সেটিংস:" else "User Settings:",
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                        Text(if (isBengali) "হালনাগাদকৃত" else "Restored", fontWeight = FontWeight.Bold, color = IncomeGreen)
+                                    }
+                                }
+                                if (result.smartSpendingRestored) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = if (isBengali) "স্মার্ট স্পেন্ডিং সীমা:" else "Smart Spending Limits:",
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                        Text(if (isBengali) "হালনাগাদকৃত" else "Restored", fontWeight = FontWeight.Bold, color = IncomeGreen)
+                                    }
                                 }
                             }
                         }
@@ -1187,9 +1419,9 @@ fun SettingsScreen(
                 }
             }
 
-            // Data Management & Statements Section
+            // Dedicated Data Backup & Restore Section
             item {
-                SettingsSectionHeader(if (isBengali) "ডেটা ও স্টেটমেন্ট" else "Data & Statements")
+                SettingsSectionHeader(if (isBengali) "ডেটা ব্যাকআপ ও রিস্টোর" else "Data Backup & Restore")
                 Spacer(modifier = Modifier.height(6.dp))
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -1199,20 +1431,35 @@ fun SettingsScreen(
                     Column {
                         SettingsOptionRow(
                             icon = Icons.Default.FolderZip,
-                            title = if (isBengali) "সম্পূর্ণ ডেটা ব্যাকআপ (.ZIP)" else "Full Data Backup (.ZIP)",
-                            subtitle = if (isBengali) "ব্যক্তিগত ও বাণিজ্যিক সব লেনদেন সুরক্ষিত ZIP ফাইলে সংরক্ষণ করুন" else "Create a safe .ZIP backup of all personal and business records",
+                            iconTint = EmeraldPrimary,
+                            title = if (isBengali) "ব্যাকআপ (.ZIP)" else "Backup",
+                            subtitle = if (isBengali) "ব্যক্তিগত ও বাণিজ্যিক সব লেনদেন, প্রোফাইল ও সেটিংস ZIP ফাইলে সংরক্ষণ করুন" else "Create a complete .ZIP backup of user data, profile, and settings",
                             onClick = { performBackup() }
                         )
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                         SettingsOptionRow(
                             icon = Icons.Default.SettingsBackupRestore,
-                            title = if (isBengali) "ব্যাকআপ রিস্টোর (.ZIP)" else "Restore Backup (.ZIP)",
-                            subtitle = if (isBengali) "পূর্ববর্তী ZIP ব্যাকআপ ফাইল থেকে ডেটা পুনরুদ্ধার ও একত্রীকরণ করুন" else "Restore and merge records safely from an Amar Hishab .ZIP backup",
+                            iconTint = FintechPrimary,
+                            title = if (isBengali) "রিস্টোর (.ZIP)" else "Restore",
+                            subtitle = if (isBengali) "পূর্ববর্তী ZIP ব্যাকআপ ফাইল থেকে ডেটা, প্রোফাইল ও সেটিংস পুনরুদ্ধার করুন" else "Restore data, profile, and preferences safely from an Amar Hishab .ZIP backup",
                             onClick = {
                                 restoreFilePickerLauncher.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream", "*/*"))
                             }
                         )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                    }
+                }
+            }
+
+            // Statements & Data Management Section
+            item {
+                SettingsSectionHeader(if (isBengali) "স্টেটমেন্ট ও অন্যান্য" else "Statements & Management")
+                Spacer(modifier = Modifier.height(6.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column {
                         SettingsOptionRow(
                             icon = Icons.Default.PictureAsPdf,
                             title = if (isBengali) "স্টেটমেন্ট ডাউনলোড (PDF / CSV)" else "Download Statement (PDF / CSV)",
@@ -1252,11 +1499,33 @@ fun SettingsScreen(
                             title = if (isBengali) "আপডেট চেক করুন" else "Check for Updates",
                             subtitle = "v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})",
                             trailingContent = {
-                                TextButton(onClick = { isChecking3DUpdate = true }) {
+                                TextButton(onClick = {
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://amarhish.netlify.app/"))
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                if (isBengali) "ওয়েবসাইট খোলার মতো কোনো ব্রাউজার পাওয়া যায়নি" else "No browser available to open updates website"
+                                            )
+                                        }
+                                    }
+                                }) {
                                     Text(if (isBengali) "চেক করুন" else "Check Now", color = EmeraldPrimary, fontWeight = FontWeight.Bold)
                                 }
                             },
-                            onClick = { isChecking3DUpdate = true }
+                            onClick = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://amarhish.netlify.app/"))
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            if (isBengali) "ওয়েবসাইট খোলার মতো কোনো ব্রাউজার পাওয়া যায়নি" else "No browser available to open updates website"
+                                        )
+                                    }
+                                }
+                            }
                         )
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                         SettingsOptionRow(
@@ -1340,53 +1609,13 @@ fun SettingsScreen(
                             }
                         )
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Favorite,
-                                    contentDescription = "Donation",
-                                    tint = Color(0xFFEF4444),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (isBengali) "অনুদান ও সহায়তা (Donation)" else "Support / Donation",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = if (isBengali) "অ্যাপটি আপনার উপকারে আসলে আমাদের উন্নয়ন কাজে সহযোগিতা করতে পারেন (Personal Send Money):"
-                                else "Support the continuous development of Amar Hishab (Personal Send Money):",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            DonationNumberRow(
-                                provider = "bKash",
-                                number = "01327206804",
-                                brandColor = Color(0xFFE2136E),
-                                context = context,
-                                isBengali = isBengali
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            DonationNumberRow(
-                                provider = "Nagad",
-                                number = "01327206804",
-                                brandColor = Color(0xFFF7941D),
-                                context = context,
-                                isBengali = isBengali
-                            )
-                        }
+                        SettingsOptionRow(
+                            icon = Icons.Default.Favorite,
+                            iconTint = Color(0xFFEF4444),
+                            title = if (isBengali) "অনুদান ও সহায়তা (Donation)" else "Donation",
+                            subtitle = if (isBengali) "বিকাশ ও নগদে অ্যাপের উন্নয়ন কাজে সহযোগিতা করুন" else "Support continuous app development via bKash or Nagad",
+                            onClick = { showDonationDialog = true }
+                        )
                     }
                 }
             }

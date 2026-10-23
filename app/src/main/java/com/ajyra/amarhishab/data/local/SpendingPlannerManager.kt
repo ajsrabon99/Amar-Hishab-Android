@@ -26,13 +26,48 @@ class SpendingPlannerManager private constructor(private val context: Context) {
         NotificationRepository(context)
     }
 
+    fun isLimitConfigured(workspace: Workspace): Boolean {
+        val key = when (workspace) {
+            Workspace.PERSONAL -> KEY_LIMIT_PERSONAL
+            Workspace.BUSINESS -> KEY_LIMIT_BUSINESS
+        }
+        return prefs.contains(key) && (prefs.getString(key, null)?.toDoubleOrNull() ?: 0.0) > 0.0
+    }
+
     fun getMonthlyLimit(workspace: Workspace): Double {
         val key = when (workspace) {
             Workspace.PERSONAL -> KEY_LIMIT_PERSONAL
             Workspace.BUSINESS -> KEY_LIMIT_BUSINESS
         }
-        val defaultVal = if (workspace == Workspace.PERSONAL) 30000.0 else 50000.0
-        return prefs.getString(key, defaultVal.toString())?.toDoubleOrNull() ?: defaultVal
+        return prefs.getString(key, "0.0")?.toDoubleOrNull() ?: 0.0
+    }
+
+    fun calculateSuggestedMonthlyLimit(allTransactions: List<Transaction>, workspace: Workspace): Double {
+        val wsId = workspace.id
+        // Exclude transfers strictly, include only actual expense transactions in active workspace
+        val expenseTxs = allTransactions.filter { tx ->
+            tx.type == TransactionType.EXPENSE &&
+                    (tx.workspace.equals(wsId, ignoreCase = true) || tx.workspace.equals("ALL", ignoreCase = true)) &&
+                    tx.toAccountCode == null
+        }
+        if (expenseTxs.isEmpty()) return 0.0
+
+        val monthMap = mutableMapOf<String, Double>()
+        for (tx in expenseTxs) {
+            val ym = if (tx.date.length >= 7) tx.date.substring(0, 7) else ""
+            if (ym.isNotEmpty()) {
+                monthMap[ym] = (monthMap[ym] ?: 0.0) + tx.amount
+            }
+        }
+        val totalSpentAllMonths = expenseTxs.sumOf { it.amount }
+        val monthCount = monthMap.size.coerceAtLeast(1)
+        val avgMonthlyExpense = totalSpentAllMonths / monthCount
+
+        if (avgMonthlyExpense <= 0.0) return 0.0
+
+        // Round up sensibly to nearest 500
+        val rounded = Math.ceil(avgMonthlyExpense / 500.0) * 500.0
+        return rounded.coerceAtLeast(1000.0)
     }
 
     fun setMonthlyLimit(workspace: Workspace, limit: Double) {
@@ -83,19 +118,23 @@ class SpendingPlannerManager private constructor(private val context: Context) {
         val monthExpenses = allTransactions.filter { tx ->
             tx.type == TransactionType.EXPENSE &&
                     (tx.workspace.equals(workspace.id, ignoreCase = true) || tx.workspace.equals("ALL", ignoreCase = true)) &&
+                    tx.toAccountCode == null &&
                     tx.date.startsWith(curYearMonthPrefix)
         }
 
+        val isConfigured = isLimitConfigured(workspace)
         val monthlyLimit = getMonthlyLimit(workspace)
+        val suggestedLimit = if (!isConfigured) calculateSuggestedMonthlyLimit(allTransactions, workspace) else 0.0
+
         val totalSpent = monthExpenses.sumOf { it.amount }
-        val remainingBudget = (monthlyLimit - totalSpent).coerceAtLeast(0.0)
-        val percentageUsed = if (monthlyLimit > 0.0) ((totalSpent / monthlyLimit) * 100.0).coerceIn(0.0, 100.0) else 0.0
+        val remainingBudget = if (isConfigured && monthlyLimit > 0.0) (monthlyLimit - totalSpent).coerceAtLeast(0.0) else 0.0
+        val percentageUsed = if (isConfigured && monthlyLimit > 0.0) ((totalSpent / monthlyLimit) * 100.0).coerceIn(0.0, 100.0) else 0.0
 
         // Remaining days including today
         val remainingDays = (totalDaysInMonth - currentDayOfMonth + 1).coerceAtLeast(1)
 
-        // Recommended Daily Spending = Remaining Monthly Budget / Remaining Days
-        val recommendedDailySpending = if (remainingDays > 0 && remainingBudget > 0.0) {
+        // Recommended Daily Spending = Remaining Monthly Budget / Remaining Days (only if user set limit)
+        val recommendedDailySpending = if (isConfigured && remainingDays > 0 && remainingBudget > 0.0) {
             remainingBudget / remainingDays
         } else {
             0.0
@@ -104,21 +143,23 @@ class SpendingPlannerManager private constructor(private val context: Context) {
         // 2. Today's actual expense
         val todayExpenses = monthExpenses.filter { it.date == todayStr }
         val todayActualSpending = todayExpenses.sumOf { it.amount }
-        val todayDifference = todayActualSpending - recommendedDailySpending
+        val todayDifference = if (isConfigured && recommendedDailySpending > 0.0) todayActualSpending - recommendedDailySpending else 0.0
 
-        // 3. Status determination with centralized thresholds
+        // 3. Status determination with centralized thresholds (only if configured)
         val todayStatus = when {
+            !isConfigured || monthlyLimit <= 0.0 -> DailySpendingStatus.NORMAL
             recommendedDailySpending <= 0.0 && todayActualSpending > 0.0 -> DailySpendingStatus.RED_ALERT
             todayActualSpending <= recommendedDailySpending -> DailySpendingStatus.NORMAL
             todayActualSpending < recommendedDailySpending * 1.25 -> DailySpendingStatus.ORANGE_WARNING
             else -> DailySpendingStatus.RED_ALERT
         }
 
-        // 4. Check and trigger Daily Notification (At most ONE per day!)
-        checkAndTriggerDailyAlertNotification(todayStatus, recommendedDailySpending, todayActualSpending, workspace, isBengali)
+        // 4. Check and trigger Daily Notification (At most ONE per day if configured)
+        if (isConfigured && monthlyLimit > 0.0) {
+            checkAndTriggerDailyAlertNotification(todayStatus, recommendedDailySpending, todayActualSpending, workspace, isBengali)
+        }
 
         // 5. Category Breakdown
-        val categoryManager = CategoryManager.getInstance(context)
         val categoryTotals = mutableMapOf<String, Double>()
         monthExpenses.forEach { tx ->
             val cat = tx.category.trim()
@@ -138,6 +179,7 @@ class SpendingPlannerManager private constructor(private val context: Context) {
             val dateStr = String.format("%04d-%02d-%02d", curYear, curMonth, day)
             val dayExpenses = monthExpenses.filter { it.date == dateStr }.sumOf { it.amount }
             val dayStatus = when {
+                !isConfigured || monthlyLimit <= 0.0 -> DailySpendingStatus.NORMAL
                 recommendedDailySpending <= 0.0 && dayExpenses > 0.0 -> DailySpendingStatus.RED_ALERT
                 dayExpenses <= recommendedDailySpending -> DailySpendingStatus.NORMAL
                 dayExpenses < recommendedDailySpending * 1.25 -> DailySpendingStatus.ORANGE_WARNING
@@ -148,7 +190,7 @@ class SpendingPlannerManager private constructor(private val context: Context) {
                     date = dateStr,
                     recommendedAmount = recommendedDailySpending,
                     actualAmount = dayExpenses,
-                    difference = dayExpenses - recommendedDailySpending,
+                    difference = if (isConfigured && recommendedDailySpending > 0.0) dayExpenses - recommendedDailySpending else 0.0,
                     status = dayStatus
                 )
             )
@@ -156,6 +198,8 @@ class SpendingPlannerManager private constructor(private val context: Context) {
 
         // 7. Data-driven Financial Insight
         val insight = generateFinancialInsight(
+            isConfigured = isConfigured,
+            suggestedLimit = suggestedLimit,
             highestCategory = highestCategory,
             categoryBreakdown = categoryBreakdown,
             totalSpent = totalSpent,
@@ -181,7 +225,9 @@ class SpendingPlannerManager private constructor(private val context: Context) {
             dailyHistory = dailyHistory,
             financialInsight = insight,
             workspace = workspace.id,
-            isRecurringLimit = isRecurringLimitEnabled(workspace)
+            isRecurringLimit = isRecurringLimitEnabled(workspace),
+            isConfigured = isConfigured,
+            suggestedLimit = suggestedLimit
         )
     }
 
@@ -245,6 +291,8 @@ class SpendingPlannerManager private constructor(private val context: Context) {
     }
 
     private fun generateFinancialInsight(
+        isConfigured: Boolean,
+        suggestedLimit: Double,
         highestCategory: String?,
         categoryBreakdown: List<CategorySpendingItem>,
         totalSpent: Double,
@@ -254,6 +302,21 @@ class SpendingPlannerManager private constructor(private val context: Context) {
         isBengali: Boolean
     ): String {
         val categoryManager = CategoryManager.getInstance(context)
+        if (!isConfigured || monthlyLimit <= 0.0) {
+            return if (suggestedLimit > 0.0) {
+                val sugFmt = CurrencyFormatter.format(suggestedLimit, isBengali)
+                if (isBengali)
+                    "আপনার বিগত খরচের ভিত্তিতে প্রস্তাবিত মাসিক বাজেট $sugFmt। দৈনিক সুষম ব্যয়ের জন্য বাজেট নির্ধারণ করুন।"
+                else
+                    "Based on your actual expense history, a recommended monthly budget is $sugFmt. Set your limit to enable daily budget tracking."
+            } else {
+                if (isBengali)
+                    "দৈনিক খরচের সঠিক নিয়ন্ত্রণ ও সাশ্রয়ী পরিকল্পনার জন্য একটি মাসিক ব্যয়ের সীমা নির্ধারণ করুন।"
+                else
+                    "Set a monthly spending limit to receive personalized daily recommendations and spending alerts."
+            }
+        }
+
         return when {
             remainingBudget <= 0.0 -> {
                 if (isBengali)
@@ -302,5 +365,15 @@ class SpendingPlannerManager private constructor(private val context: Context) {
                 instance ?: SpendingPlannerManager(context.applicationContext).also { instance = it }
             }
         }
+
+        @androidx.annotation.VisibleForTesting
+        fun resetForTesting() {
+            instance = null
+        }
+    }
+
+    @androidx.annotation.VisibleForTesting
+    fun clearLimitsForTesting() {
+        prefs.edit().clear().commit()
     }
 }

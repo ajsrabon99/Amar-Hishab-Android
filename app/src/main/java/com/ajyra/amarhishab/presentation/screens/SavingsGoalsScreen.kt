@@ -234,6 +234,11 @@ fun SavingsGoalsScreen(
                     }
                 }
 
+                // Banner Ad
+                item {
+                    com.ajyra.amarhishab.presentation.components.AdMobBanner()
+                }
+
                 // Header for All Goals
                 item {
                     Row(

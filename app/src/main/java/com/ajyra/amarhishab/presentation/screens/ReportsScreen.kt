@@ -149,6 +149,10 @@ fun ReportsScreen(
                 }
             }
 
+            item {
+                com.ajyra.amarhishab.presentation.components.AdMobBanner()
+            }
+
             // 2. Active Period Banner / Header Card
             item {
                 Card(

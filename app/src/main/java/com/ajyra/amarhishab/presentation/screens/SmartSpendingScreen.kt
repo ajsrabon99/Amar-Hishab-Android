@@ -41,6 +41,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -251,9 +252,13 @@ fun SmartSpendingScreen(
                                 )
                                 Spacer(modifier = Modifier.height(3.dp))
                                 Text(
-                                    text = CurrencyFormatter.format(summary.monthlyLimit, isBengali),
+                                    text = if (summary.isConfigured && summary.monthlyLimit > 0.0)
+                                        CurrencyFormatter.format(summary.monthlyLimit, isBengali)
+                                    else
+                                        (if (isBengali) "নির্ধারিত নয়" else "Not Set"),
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (summary.isConfigured && summary.monthlyLimit > 0.0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
 
@@ -280,10 +285,13 @@ fun SmartSpendingScreen(
                                 )
                                 Spacer(modifier = Modifier.height(3.dp))
                                 Text(
-                                    text = CurrencyFormatter.format(summary.remainingBudget, isBengali),
+                                    text = if (summary.isConfigured && summary.monthlyLimit > 0.0)
+                                        CurrencyFormatter.format(summary.remainingBudget, isBengali)
+                                    else
+                                        "—",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (summary.remainingBudget > 0) IncomeGreen else ExpenseRed
+                                    color = if (summary.isConfigured && summary.remainingBudget > 0) IncomeGreen else ExpenseRed
                                 )
                             }
                         }
@@ -303,7 +311,7 @@ fun SmartSpendingScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = "$displayPct%",
+                                text = if (summary.isConfigured && summary.monthlyLimit > 0.0) "$displayPct%" else "—",
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Bold,
                                 color = if (summary.percentageUsed >= 90) ExpenseRed else EmeraldPrimary
@@ -313,7 +321,7 @@ fun SmartSpendingScreen(
                         Spacer(modifier = Modifier.height(6.dp))
 
                         LinearProgressIndicator(
-                            progress = { (summary.percentageUsed / 100.0).toFloat().coerceIn(0f, 1f) },
+                            progress = { if (summary.isConfigured && summary.monthlyLimit > 0.0) (summary.percentageUsed / 100.0).toFloat().coerceIn(0f, 1f) else 0f },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(8.dp)
@@ -325,6 +333,90 @@ fun SmartSpendingScreen(
                             },
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
+                    }
+                }
+            }
+
+            // Intelligent Suggestion / Setup Card (if not configured)
+            if (!summary.isConfigured || summary.monthlyLimit <= 0.0) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = EmeraldPrimary.copy(alpha = 0.08f)),
+                        border = BorderStroke(1.2.dp, EmeraldPrimary.copy(alpha = 0.35f))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(EmeraldPrimary.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Lightbulb,
+                                        contentDescription = null,
+                                        tint = EmeraldPrimary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = if (isBengali) "বাজেট নির্ধারণ করুন" else "Set Monthly Budget",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = if (summary.suggestedLimit > 0.0) {
+                                            if (isBengali)
+                                                "বিগত খরচের ভিত্তিতে প্রস্তাবিত: ${CurrencyFormatter.format(summary.suggestedLimit, true)}"
+                                            else
+                                                "Suggested from history: ${CurrencyFormatter.format(summary.suggestedLimit, false)}"
+                                        } else {
+                                            if (isBengali) "দৈনিক বাজেট ও সতর্কতার জন্য মাসিক সীমা সেট করুন" else "Set a limit to enable daily budget tracking & alerts"
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                if (summary.suggestedLimit > 0.0) {
+                                    Button(
+                                        onClick = {
+                                            viewModel.setMonthlyLimit(summary.suggestedLimit)
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text(if (isBengali) "প্রস্তাবিত বাজেট গ্রহণ" else "Accept Suggestion", fontSize = 13.sp)
+                                    }
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        limitInput = if (summary.suggestedLimit > 0.0) summary.suggestedLimit.toInt().toString() else ""
+                                        showEditLimitDialog = true
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(if (isBengali) "বাজেট লিখুন" else "Set Custom Limit", fontSize = 13.sp)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -499,7 +591,71 @@ fun SmartSpendingScreen(
                 }
             }
 
-            // D. Category Breakdown Section
+            // D. Dedicated Carry Forward Settings Card
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("smart_spending_carry_forward_card"),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(EmeraldPrimary.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Payments,
+                                    contentDescription = null,
+                                    tint = EmeraldPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (isBengali) "পরবর্তী মাসে স্বয়ংক্রিয়ভাবে বজায় রাখুন" else "Carry forward to next month",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = if (isBengali)
+                                        "প্রতি মাসের শুরুতে একই মাসিক বাজেট স্বয়ংক্রিয়ভাবে চালু থাকবে"
+                                    else
+                                        "Automatically renew this monthly limit at the start of every month",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Switch(
+                            checked = summary.isRecurringLimit,
+                            onCheckedChange = { viewModel.toggleRecurringLimit(it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = EmeraldPrimary)
+                        )
+                    }
+                }
+            }
+
+            // E. Category Breakdown Section
             item {
                 Text(
                     text = if (isBengali) "খাতভিত্তিক ব্যয়ের বিভাজন" else "Category Spending Breakdown",
@@ -701,8 +857,10 @@ fun SmartSpendingScreen(
                     ) {
                         Text(
                             text = if (isBengali) "পরবর্তী মাসে স্বয়ংক্রিয়ভাবে বজায় রাখুন" else "Carry forward to next month",
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f)
                         )
+                        Spacer(modifier = Modifier.width(10.dp))
                         Switch(
                             checked = recurringEnabled,
                             onCheckedChange = { recurringEnabled = it },

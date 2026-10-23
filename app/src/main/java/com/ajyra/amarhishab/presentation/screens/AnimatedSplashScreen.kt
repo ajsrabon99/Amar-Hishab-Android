@@ -1,133 +1,138 @@
 package com.ajyra.amarhishab.presentation.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.Image
+import android.net.Uri
+import android.util.Log
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.VideoView
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.ajyra.amarhishab.R
-import com.ajyra.amarhishab.ui.theme.BrandDarkNavy
-import com.ajyra.amarhishab.ui.theme.BrandDeepBlue
-import com.ajyra.amarhishab.ui.theme.BrandLightPeriwinkle
-import com.ajyra.amarhishab.ui.theme.BrandOffWhite
 import kotlinx.coroutines.delay
 
+/**
+ * Official Amar Hishab launch video intro screen.
+ *
+ * Requirements:
+ * - Plays the bundled official intro video once at application launch.
+ * - Offline playback from res/raw/intro_video.mp4.
+ * - Transitions smoothly to the Dashboard upon completion.
+ * - Safely handles errors or timeouts without ever freezing or blocking the user.
+ * - Releases VideoView and MediaPlayer resources immediately on completion or exit.
+ * - Does not loop and cannot replay during regular dashboard navigation.
+ */
 @Composable
 fun AnimatedSplashScreen(
     onSplashFinished: () -> Unit
 ) {
-    val scale = remember { Animatable(0.75f) }
-    val alpha = remember { Animatable(0f) }
-    val textAlpha = remember { Animatable(0f) }
+    val context = LocalContext.current
+    var hasFinished by remember { mutableStateOf(false) }
+    var videoViewRef by remember { mutableStateOf<VideoView?>(null) }
 
+    fun finishIntro(reason: String) {
+        if (!hasFinished) {
+            hasFinished = true
+            Log.d("AnimatedSplashScreen", "Intro finished via $reason, proceeding to Dashboard")
+            try {
+                videoViewRef?.stopPlayback()
+            } catch (_: Exception) {
+            }
+            onSplashFinished()
+        }
+    }
+
+    // Safety timeout: video is 8.0 seconds; 9.5s ensures even slow decoders finish cleanly
     LaunchedEffect(Unit) {
-        // Subtle logo entrance: scale & fade in
-        alpha.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
-        )
-        scale.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing)
-        )
-        // Subtitle & brand text entrance
-        textAlpha.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-        )
-        // Hold for smooth premium visual impression (total 900-1000ms)
-        delay(300)
-        onSplashFinished()
+        delay(9500L)
+        finishIntro("safety_timeout")
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            try {
+                videoViewRef?.stopPlayback()
+            } catch (_: Exception) {
+            }
+        }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(BrandDarkNavy, BrandDeepBlue)
-                )
-            )
+            .background(Color(0xFF060D15))
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            ) {
+                // Optional tap to skip directly to dashboard for power users
+                finishIntro("user_tap_skip")
+            }
             .testTag("animated_splash_screen"),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Surface(
-                modifier = Modifier
-                    .size(96.dp)
-                    .scale(scale.value)
-                    .alpha(alpha.value),
-                shape = CircleShape,
-                color = androidx.compose.ui.graphics.Color(0xFFF3F5F4),
-                shadowElevation = 8.dp
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.amar_hishab_icon),
-                        contentDescription = "Amar Hishab Official Logo",
-                        modifier = Modifier
-                            .size(80.dp)
-                            .clip(CircleShape)
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                VideoView(ctx).apply {
+                    layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
                     )
+                    videoViewRef = this
+
+                    try {
+                        val videoUri = Uri.parse("android.resource://${ctx.packageName}/${R.raw.intro_video}")
+                        setVideoURI(videoUri)
+
+                        setOnPreparedListener { mp ->
+                            try {
+                                mp.isLooping = false
+                                mp.setVolume(1.0f, 1.0f)
+                            } catch (e: Exception) {
+                                Log.w("AnimatedSplashScreen", "MediaPlayer prep config note: ${e.message}")
+                            }
+                            start()
+                        }
+
+                        setOnCompletionListener {
+                            finishIntro("video_completion")
+                        }
+
+                        setOnErrorListener { _, what, extra ->
+                            Log.w("AnimatedSplashScreen", "Video playback error ($what, $extra), proceeding to dashboard safely")
+                            finishIntro("playback_error")
+                            true // Handled safely
+                        }
+                    } catch (e: Exception) {
+                        Log.e("AnimatedSplashScreen", "VideoView setup exception: ${e.message}", e)
+                        finishIntro("setup_exception")
+                    }
+                }
+            },
+            update = { view ->
+                if (!view.isPlaying && !hasFinished) {
+                    try {
+                        view.start()
+                    } catch (_: Exception) {
+                    }
                 }
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Text(
-                text = "আমার হিসাব",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 28.sp,
-                    color = BrandOffWhite
-                ),
-                modifier = Modifier.alpha(textAlpha.value)
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = "Amar Hishab • Personal Finance",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = BrandLightPeriwinkle,
-                    letterSpacing = 0.5.sp
-                ),
-                modifier = Modifier.alpha(textAlpha.value)
-            )
-        }
+        )
     }
 }

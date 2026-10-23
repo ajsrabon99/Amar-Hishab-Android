@@ -9,6 +9,7 @@ import com.ajyra.amarhishab.model.TransactionType
 import com.ajyra.amarhishab.model.Workspace
 import com.ajyra.amarhishab.utils.DateUtils
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -29,7 +30,66 @@ class SmartSpendingUnitTest {
     @Before
     fun setup() {
         context = RuntimeEnvironment.getApplication()
+        SpendingPlannerManager.resetForTesting()
         plannerManager = SpendingPlannerManager.getInstance(context)
+        plannerManager.clearLimitsForTesting()
+    }
+
+    @Test
+    fun testNewUserStartsAtZeroLimitAndUnconfigured() {
+        assertEquals(0.0, plannerManager.getMonthlyLimit(Workspace.PERSONAL), 0.01)
+        assertEquals(0.0, plannerManager.getMonthlyLimit(Workspace.BUSINESS), 0.01)
+        assertFalse(plannerManager.isLimitConfigured(Workspace.PERSONAL))
+
+        val summary = plannerManager.computeSmartSpending(emptyList(), Workspace.PERSONAL, false)
+        assertEquals(0.0, summary.monthlyLimit, 0.01)
+        assertFalse(summary.isConfigured)
+        assertEquals(0.0, summary.suggestedLimit, 0.01)
+    }
+
+    @Test
+    fun testIntelligentBudgetSuggestionFromActualExpenses() {
+        val today = DateUtils.todayDateString()
+        val txs = listOf(
+            Transaction(
+                id = "tx1",
+                type = TransactionType.EXPENSE,
+                amount = 4000.0,
+                category = "Groceries",
+                accountCode = "CASH",
+                date = today,
+                workspace = Workspace.PERSONAL.id
+            ),
+            Transaction(
+                id = "tx2",
+                type = TransactionType.EXPENSE,
+                amount = 6000.0,
+                category = "Rent",
+                accountCode = "BANK",
+                date = today,
+                workspace = Workspace.PERSONAL.id
+            ),
+            // Transfers MUST be ignored in suggestion calculation
+            Transaction(
+                id = "tx3",
+                type = TransactionType.TRANSFER,
+                amount = 20000.0,
+                category = "Transfer",
+                accountCode = "BANK",
+                toAccountCode = "BKASH",
+                date = today,
+                workspace = Workspace.PERSONAL.id
+            )
+        )
+
+        val suggested = plannerManager.calculateSuggestedMonthlyLimit(txs, Workspace.PERSONAL)
+        // Expenses total 10,000 in 1 month -> suggested rounded to nearest 500 = 10,000.0
+        assertEquals(10000.0, suggested, 0.01)
+
+        val summary = plannerManager.computeSmartSpending(txs, Workspace.PERSONAL, false)
+        assertEquals(0.0, summary.monthlyLimit, 0.01)
+        assertFalse(summary.isConfigured)
+        assertEquals(10000.0, summary.suggestedLimit, 0.01)
     }
 
     @Test
@@ -53,7 +113,7 @@ class SmartSpendingUnitTest {
                 type = TransactionType.EXPENSE,
                 amount = 5000.0,
                 category = "Food",
-                account = AccountType.CASH,
+                accountCode = "CASH",
                 date = today,
                 workspace = Workspace.PERSONAL.id
             ),
@@ -63,7 +123,7 @@ class SmartSpendingUnitTest {
                 type = TransactionType.INCOME,
                 amount = 20000.0,
                 category = "Salary",
-                account = AccountType.BANK,
+                accountCode = "BANK",
                 date = today,
                 workspace = Workspace.PERSONAL.id
             ),
@@ -73,8 +133,8 @@ class SmartSpendingUnitTest {
                 type = TransactionType.TRANSFER,
                 amount = 8000.0,
                 category = "Transfer",
-                account = AccountType.CASH,
-                toAccount = AccountType.BKASH,
+                accountCode = "CASH",
+                toAccountCode = "BKASH",
                 date = today,
                 workspace = Workspace.PERSONAL.id
             ),
@@ -84,7 +144,7 @@ class SmartSpendingUnitTest {
                 type = TransactionType.EXPENSE,
                 amount = 15000.0,
                 category = "Office Supplies",
-                account = AccountType.BANK,
+                accountCode = "BANK",
                 date = today,
                 workspace = Workspace.BUSINESS.id
             )
@@ -136,7 +196,7 @@ class SmartSpendingUnitTest {
                 type = TransactionType.EXPENSE,
                 amount = 200.0,
                 category = "Food",
-                account = AccountType.CASH,
+                accountCode = "CASH",
                 date = today,
                 workspace = Workspace.PERSONAL.id
             )

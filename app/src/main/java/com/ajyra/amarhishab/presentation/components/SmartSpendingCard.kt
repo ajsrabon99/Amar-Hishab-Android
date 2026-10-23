@@ -155,9 +155,13 @@ fun SmartSpendingCard(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = CurrencyFormatter.format(summary.monthlyLimit, isBengali),
+                        text = if (summary.isConfigured && summary.monthlyLimit > 0.0)
+                            CurrencyFormatter.format(summary.monthlyLimit, isBengali)
+                        else
+                            (if (isBengali) "নির্ধারিত নয়" else "Not Set"),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = if (summary.isConfigured && summary.monthlyLimit > 0.0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -172,7 +176,7 @@ fun SmartSpendingCard(
                         text = CurrencyFormatter.format(summary.totalSpent, isBengali),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = if (summary.percentageUsed >= 90) ExpenseRed else MaterialTheme.colorScheme.onSurface
+                        color = if (summary.isConfigured && summary.percentageUsed >= 90) ExpenseRed else MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -184,10 +188,13 @@ fun SmartSpendingCard(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = CurrencyFormatter.format(summary.remainingBudget, isBengali),
+                        text = if (summary.isConfigured && summary.monthlyLimit > 0.0)
+                            CurrencyFormatter.format(summary.remainingBudget, isBengali)
+                        else
+                            "—",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = if (summary.remainingBudget > 0) IncomeGreen else ExpenseRed
+                        color = if (summary.isConfigured && summary.remainingBudget > 0) IncomeGreen else ExpenseRed
                     )
                 }
             }
@@ -195,7 +202,10 @@ fun SmartSpendingCard(
             Spacer(modifier = Modifier.height(12.dp))
 
             // Monthly Progress Bar
-            val progressFraction = (summary.percentageUsed / 100.0).toFloat().coerceIn(0f, 1f)
+            val progressFraction = if (summary.isConfigured && summary.monthlyLimit > 0.0)
+                (summary.percentageUsed / 100.0).toFloat().coerceIn(0f, 1f)
+            else
+                0f
             LinearProgressIndicator(
                 progress = { progressFraction },
                 modifier = Modifier
@@ -213,11 +223,13 @@ fun SmartSpendingCard(
             Spacer(modifier = Modifier.height(14.dp))
 
             // Today's Status Banner
+            val isConfigured = summary.isConfigured && summary.monthlyLimit > 0.0
+            val effectiveStatusColor = if (isConfigured) statusColor else EmeraldPrimary
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                color = statusColor.copy(alpha = 0.08f),
-                border = BorderStroke(1.dp, statusColor.copy(alpha = 0.25f))
+                color = effectiveStatusColor.copy(alpha = 0.08f),
+                border = BorderStroke(1.dp, effectiveStatusColor.copy(alpha = 0.25f))
             ) {
                 Row(
                     modifier = Modifier
@@ -226,49 +238,85 @@ fun SmartSpendingCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(
-                            text = if (isBengali) "আজকের খরচ / প্রস্তাবিত দৈনিক" else "Today / Daily Recommended",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isConfigured) {
+                        Column {
                             Text(
-                                text = CurrencyFormatter.format(summary.todayActualSpending, isBengali),
+                                text = if (isBengali) "আজকের খরচ / প্রস্তাবিত দৈনিক" else "Today / Daily Recommended",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = CurrencyFormatter.format(summary.todayActualSpending, isBengali),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = statusColor
+                                )
+                                Text(
+                                    text = " / ${CurrencyFormatter.format(summary.recommendedDailySpending, isBengali)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // Status Pill
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = statusColor.copy(alpha = 0.18f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = statusIcon,
+                                    contentDescription = null,
+                                    tint = statusColor,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = statusLabel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = statusColor
+                                )
+                            }
+                        }
+                    } else {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (isBengali) "বাজেট সক্রিয় নয়" else "Budget Not Configured",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = statusColor
+                                color = MaterialTheme.colorScheme.onSurface
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = " / ${CurrencyFormatter.format(summary.recommendedDailySpending, isBengali)}",
+                                text = if (summary.suggestedLimit > 0.0) {
+                                    if (isBengali)
+                                        "বিগত খরচের ভিত্তিতে প্রস্তাবিত: ${CurrencyFormatter.format(summary.suggestedLimit, true)}"
+                                    else
+                                        "Suggested: ${CurrencyFormatter.format(summary.suggestedLimit, false)}"
+                                } else {
+                                    if (isBengali) "মাসিক বাজেট নির্ধারণ করতে ট্যাপ করুন" else "Tap details to configure your limit"
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    }
-
-                    // Status Pill
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = statusColor.copy(alpha = 0.18f)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = EmeraldPrimary.copy(alpha = 0.15f)
                         ) {
-                            Icon(
-                                imageVector = statusIcon,
-                                contentDescription = null,
-                                tint = statusColor,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = statusLabel,
+                                text = if (isBengali) "বাজেট সেট করুন" else "Set Limit",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = statusColor
+                                color = EmeraldPrimary,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                             )
                         }
                     }

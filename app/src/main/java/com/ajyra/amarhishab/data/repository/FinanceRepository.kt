@@ -1,6 +1,7 @@
 package com.ajyra.amarhishab.data.repository
 
 import android.util.Log
+import com.ajyra.amarhishab.analytics.AnalyticsManager
 import com.ajyra.amarhishab.data.local.SavingsGoalDao
 import com.ajyra.amarhishab.data.local.SavingsGoalEntity
 import com.ajyra.amarhishab.data.local.TransactionDao
@@ -423,6 +424,7 @@ class FinanceRepository(
         )
         // Save immediately locally for zero-loss offline support
         transactionDao.insert(TransactionEntity.fromDomain(localTx))
+        AnalyticsManager.logTransactionAction(action = "add", type = type.name, workspace = localTx.workspace)
 
         try {
             val req = CreateTransactionRequestDto(
@@ -483,6 +485,7 @@ class FinanceRepository(
             workspace = ws
         )
         transactionDao.update(TransactionEntity.fromDomain(updatedTx))
+        AnalyticsManager.logTransactionAction(action = "edit", type = type.name, workspace = ws)
 
         try {
             val req = CreateTransactionRequestDto(
@@ -506,6 +509,7 @@ class FinanceRepository(
 
     suspend fun deleteTransaction(id: String): NetworkResult<Unit> = withContext(Dispatchers.IO) {
         transactionDao.deleteById(id)
+        AnalyticsManager.logTransactionAction(action = "delete", type = "transaction", workspace = getActiveWorkspaceId())
         try {
             apiService.deleteTransaction(id)
         } catch (e: Exception) {
@@ -537,6 +541,7 @@ class FinanceRepository(
             workspace = getActiveWorkspaceId()
         )
         transactionDao.insert(TransactionEntity.fromDomain(localTx))
+        AnalyticsManager.logTransactionAction(action = "add", type = "transfer", workspace = localTx.workspace)
 
         try {
             val req = TransferRequestDto(

@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.google.services)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -13,8 +13,8 @@ android {
         applicationId = "com.ajyra.amarhishab"
         minSdk = 26
         targetSdk = 36
-        versionCode = 22
-        versionName = "1.2.8"
+        versionCode = 27
+        versionName = "1.3.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -101,7 +101,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.analytics)
+    implementation("com.google.firebase:firebase-analytics")
+
+    implementation(libs.play.services.ads)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

@@ -21,13 +21,13 @@ data class CategorySpendingItem(
 )
 
 data class SmartSpendingSummary(
-    val monthlyLimit: Double = 30000.0,
+    val monthlyLimit: Double = 0.0,
     val totalSpent: Double = 0.0,
-    val remainingBudget: Double = 30000.0,
+    val remainingBudget: Double = 0.0,
     val percentageUsed: Double = 0.0,
     val remainingDays: Int = 30,
     val totalDaysInMonth: Int = 30,
-    val recommendedDailySpending: Double = 1000.0,
+    val recommendedDailySpending: Double = 0.0,
     val todayActualSpending: Double = 0.0,
     val todayStatus: DailySpendingStatus = DailySpendingStatus.NORMAL,
     val todayDifference: Double = 0.0,
@@ -36,5 +36,7 @@ data class SmartSpendingSummary(
     val dailyHistory: List<DailySpendingRecord> = emptyList(),
     val financialInsight: String? = null,
     val workspace: String = "PERSONAL",
-    val isRecurringLimit: Boolean = true
+    val isRecurringLimit: Boolean = true,
+    val isConfigured: Boolean = false,
+    val suggestedLimit: Double = 0.0
 )

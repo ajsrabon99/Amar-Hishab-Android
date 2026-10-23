@@ -86,6 +86,49 @@ fun AppNavigation(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    LaunchedEffect(currentRoute) {
+        currentRoute?.let { route ->
+            val cleanScreenName = when {
+                route.startsWith("home") -> "home"
+                route.startsWith("transactions") -> "transactions"
+                route.startsWith("reports") -> {
+                    com.ajyra.amarhishab.analytics.AnalyticsManager.logEvent(
+                        com.ajyra.amarhishab.analytics.AnalyticsManager.EVENT_REPORT_VIEWED
+                    )
+                    "reports"
+                }
+                route.startsWith("profile") -> {
+                    com.ajyra.amarhishab.analytics.AnalyticsManager.logEvent(
+                        com.ajyra.amarhishab.analytics.AnalyticsManager.EVENT_PROFILE_OPENED
+                    )
+                    "profile"
+                }
+                route.startsWith("settings") -> {
+                    com.ajyra.amarhishab.analytics.AnalyticsManager.logEvent(
+                        com.ajyra.amarhishab.analytics.AnalyticsManager.EVENT_SETTINGS_OPENED
+                    )
+                    "settings"
+                }
+                route.startsWith("smart_spending") -> {
+                    com.ajyra.amarhishab.analytics.AnalyticsManager.logEvent(
+                        com.ajyra.amarhishab.analytics.AnalyticsManager.EVENT_SMART_SPENDING_VIEWED
+                    )
+                    "smart_spending"
+                }
+                route.startsWith("savings_goals") -> "savings_goals"
+                route.startsWith("statement") -> "statement"
+                route.startsWith("import_data") -> "import_data"
+                route.startsWith("add_transaction") -> "add_transaction"
+                route.startsWith("edit_transaction") -> "edit_transaction"
+                route.startsWith("transfer") -> "transfer"
+                route.startsWith("custom_categories") -> "custom_categories"
+                route.startsWith("notifications") -> "notifications"
+                else -> route.substringBefore("/")
+            }
+            com.ajyra.amarhishab.analytics.AnalyticsManager.logScreenView(cleanScreenName)
+        }
+    }
+
     val bottomNavItems = listOf(
         Screen.Home,
         Screen.Transactions,

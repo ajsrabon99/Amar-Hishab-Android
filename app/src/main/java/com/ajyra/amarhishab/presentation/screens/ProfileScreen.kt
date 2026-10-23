@@ -455,7 +455,9 @@ fun ProfileScreen(
             }
 
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+                com.ajyra.amarhishab.presentation.components.AdMobBanner()
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }

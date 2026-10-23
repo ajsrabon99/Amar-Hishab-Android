@@ -144,4 +144,79 @@ class BackupRestoreAndEditTransactionTest {
         assertEquals(22000.0, expense, 0.001)
         assertEquals(28000.0, netBalance, 0.001)
     }
+
+    @Test
+    fun testCompleteBackupArchiveAnalysisWithProfilePhotoAndSettings() {
+        val testZip = File(tempFolder.root, "complete_state_backup.zip")
+        java.util.zip.ZipOutputStream(java.io.FileOutputStream(testZip)).use { zos ->
+            fun addEntry(name: String, content: ByteArray) {
+                zos.putNextEntry(java.util.zip.ZipEntry(name))
+                zos.write(content)
+                zos.closeEntry()
+            }
+
+            val metaJson = org.json.JSONObject().apply {
+                put("appName", "Amar Hishab")
+                put("appVersion", "1.3.0")
+                put("transactionCount", 4)
+                put("personalTransactionCount", 3)
+                put("businessTransactionCount", 1)
+                put("categoryCount", 2)
+                put("goalCount", 1)
+                put("hasProfile", true)
+                put("hasProfilePhoto", true)
+                put("profileName", "AJ SRABON")
+                put("hasSettings", true)
+                put("hasSmartSpending", true)
+                put("backupDateFormatted", "22 October 2026, 12:00")
+            }
+            addEntry("backup_metadata.json", metaJson.toString().toByteArray(Charsets.UTF_8))
+
+            val txJson = org.json.JSONArray().apply {
+                put(org.json.JSONObject().apply {
+                    put("id", "tx-p1")
+                    put("type", "INCOME")
+                    put("amount", 50000.0)
+                    put("workspace", "PERSONAL")
+                })
+                put(org.json.JSONObject().apply {
+                    put("id", "tx-b1")
+                    put("type", "EXPENSE")
+                    put("amount", 12000.0)
+                    put("workspace", "BUSINESS")
+                })
+            }
+            addEntry("transactions.json", txJson.toString().toByteArray(Charsets.UTF_8))
+
+            val profileJson = org.json.JSONObject().apply {
+                put("name", "AJ SRABON")
+                put("phone", "+8801327206804")
+                put("hasPhoto", true)
+            }
+            addEntry("profile.json", profileJson.toString().toByteArray(Charsets.UTF_8))
+
+            val settingsJson = org.json.JSONObject().apply {
+                put("language", "bn")
+                put("themeMode", "dark")
+                put("isBalanceHidden", false)
+            }
+            addEntry("settings.json", settingsJson.toString().toByteArray(Charsets.UTF_8))
+
+            // Fake binary image bytes
+            val fakePhotoBytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte())
+            addEntry("profile_photo.jpg", fakePhotoBytes)
+        }
+
+        val analysis = java.io.FileInputStream(testZip).use { stream ->
+            com.ajyra.amarhishab.data.service.DataBackupService.analyzeBackupStream(stream)
+        }
+
+        assertTrue("Analysis must be valid", analysis.isValid)
+        assertTrue("Analysis must detect profile data", analysis.hasProfileData)
+        assertTrue("Analysis must detect binary profile photo", analysis.hasProfilePhoto)
+        assertTrue("Analysis must detect settings", analysis.hasSettings)
+        assertTrue("Analysis must detect smart spending", analysis.hasSmartSpending)
+        assertEquals("AJ SRABON", analysis.profileName)
+        assertEquals("1.3.0", analysis.appVersion)
+    }
 }

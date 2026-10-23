@@ -355,7 +355,9 @@ fun TransactionsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+            com.ajyra.amarhishab.presentation.components.AdMobBanner()
+            Spacer(modifier = Modifier.height(4.dp))
 
             // Transaction list
             if (transactions.isEmpty()) {

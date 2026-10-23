@@ -3,6 +3,7 @@ package com.ajyra.amarhishab.data.service
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.core.content.FileProvider
 import androidx.room.withTransaction
 import com.ajyra.amarhishab.BuildConfig
@@ -11,6 +12,7 @@ import com.ajyra.amarhishab.data.local.CategoryManager
 import com.ajyra.amarhishab.data.local.EncryptedSessionManager
 import com.ajyra.amarhishab.data.local.SavingsGoalDao
 import com.ajyra.amarhishab.data.local.SavingsGoalEntity
+import com.ajyra.amarhishab.data.local.SpendingPlannerManager
 import com.ajyra.amarhishab.data.local.TransactionDao
 import com.ajyra.amarhishab.data.local.TransactionEntity
 import com.ajyra.amarhishab.model.CategoryItem
@@ -40,6 +42,11 @@ data class BackupAnalysis(
     val businessTransactionCount: Int = 0,
     val categoryCount: Int = 0,
     val goalCount: Int = 0,
+    val hasProfileData: Boolean = false,
+    val hasProfilePhoto: Boolean = false,
+    val hasSettings: Boolean = false,
+    val hasSmartSpending: Boolean = false,
+    val profileName: String = "",
     val backupDate: String = "",
     val appVersion: String = "",
     val errorReason: String? = null
@@ -52,6 +59,9 @@ data class RestoreResult(
     val businessTransactionsRestored: Int = 0,
     val categoriesRestored: Int = 0,
     val goalsRestored: Int = 0,
+    val profileRestored: Boolean = false,
+    val settingsRestored: Boolean = false,
+    val smartSpendingRestored: Boolean = false,
     val budgetsRestored: Int = 0,
     val recurringRestored: Int = 0,
     val remindersRestored: Int = 0,
@@ -60,6 +70,7 @@ data class RestoreResult(
 
 object DataBackupService {
 
+    private const val TAG = "DataBackupService"
     private const val PREFS_BACKUP = "amar_hishab_backup_prefs"
     private const val KEY_LAST_BACKUP = "key_last_backup_timestamp"
     private const val KEY_AUTO_BACKUP = "key_auto_backup_enabled"
@@ -94,7 +105,7 @@ object DataBackupService {
         val fileName = "Amar-Hishab-Backup-$dateStamp.zip"
         val zipFile = customOutputFile ?: File(context.cacheDir, fileName)
 
-        // 1. Transactions JSON
+        // 1. Transactions JSON (Personal, Business, Incomes, Expenses, Transfers)
         val transactions = dao.getAllTransactionsList()
         val txArray = JSONArray()
         var personalCount = 0
@@ -155,24 +166,61 @@ object DataBackupService {
             goalArray.put(obj)
         }
 
-        // 4. Accounts & Settings JSON (strictly non-sensitive, no tokens or secrets)
+        // 4. Smart Spending Settings JSON
+        val plannerManager = SpendingPlannerManager.getInstance(context)
+        val smartSpendingObj = JSONObject().apply {
+            put("personalMonthlyLimit", plannerManager.getMonthlyLimit(Workspace.PERSONAL))
+            put("businessMonthlyLimit", plannerManager.getMonthlyLimit(Workspace.BUSINESS))
+            put("personalRecurringLimit", plannerManager.isRecurringLimitEnabled(Workspace.PERSONAL))
+            put("businessRecurringLimit", plannerManager.isRecurringLimitEnabled(Workspace.BUSINESS))
+        }
+
+        // 5. User Profile JSON and actual profile photo extraction
         val session = EncryptedSessionManager.getInstance(context)
+        val user = session.getSavedUser()
+        var profilePhotoBytes: ByteArray? = null
+        if (!user.avatarUri.isNullOrBlank()) {
+            try {
+                val avatarFile = File(user.avatarUri)
+                if (avatarFile.exists() && avatarFile.canRead()) {
+                    profilePhotoBytes = avatarFile.readBytes()
+                } else {
+                    val uri = Uri.parse(user.avatarUri)
+                    context.contentResolver.openInputStream(uri)?.use { stream ->
+                        profilePhotoBytes = stream.readBytes()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Profile photo read note: ${e.message}")
+            }
+        }
+
+        val profileObj = JSONObject().apply {
+            put("name", user.displayName)
+            put("email", user.email)
+            put("phone", user.phone)
+            put("hasPhoto", profilePhotoBytes != null)
+            put("photoEntryName", if (profilePhotoBytes != null) "profile_photo.jpg" else "")
+        }
+
+        // 6. User Preferences & Settings JSON (strictly non-sensitive, no tokens or passwords)
         val settingsObj = JSONObject().apply {
             put("language", session.getSavedLanguage())
             put("themeMode", session.getSavedTheme())
             put("activeWorkspace", session.getSavedWorkspace().id)
+            put("isBalanceHidden", session.isBalanceHidden())
             put("appLockEnabled", session.isAppLockEnabled())
             put("notificationsEnabled", session.areNotificationsEnabled())
             put("expenseRemindersEnabled", session.areExpenseRemindersEnabled())
             put("monthlySummaryEnabled", session.isMonthlySummaryEnabled())
         }
 
-        // 5. Metadata JSON
+        // 7. Metadata JSON
         val metaObj = JSONObject().apply {
             put("appName", "Amar Hishab")
             put("appVersion", BuildConfig.VERSION_NAME)
             put("versionCode", BuildConfig.VERSION_CODE)
-            put("backupFormatVersion", "1.2")
+            put("backupFormatVersion", "1.3")
             put("backupTimestamp", System.currentTimeMillis())
             put("backupDateFormatted", SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.US).format(Date()))
             put("transactionCount", transactions.size)
@@ -180,9 +228,14 @@ object DataBackupService {
             put("businessTransactionCount", businessCount)
             put("categoryCount", categories.size)
             put("goalCount", goals.size)
+            put("hasProfile", true)
+            put("hasProfilePhoto", profilePhotoBytes != null)
+            put("profileName", user.displayName)
+            put("hasSettings", true)
+            put("hasSmartSpending", true)
         }
 
-        // 6. Universal compatibility entry (BackupManager format)
+        // 8. Universal compatibility entry (BackupManager format)
         val legacyObj = JSONObject().apply {
             put("version", 2)
             put("timestamp", System.currentTimeMillis())
@@ -198,7 +251,7 @@ object DataBackupService {
             put("accounts", accArr)
         }
 
-        // Write Zip
+        // Write Zip File
         FileOutputStream(zipFile).use { fos ->
             ZipOutputStream(fos).use { zos ->
                 fun writeZipEntry(name: String, content: String) {
@@ -212,8 +265,19 @@ object DataBackupService {
                 writeZipEntry("transactions.json", txArray.toString(2))
                 writeZipEntry("categories.json", catArray.toString(2))
                 writeZipEntry("goals.json", goalArray.toString(2))
+                writeZipEntry("smart_spending.json", smartSpendingObj.toString(2))
+                writeZipEntry("profile.json", profileObj.toString(2))
                 writeZipEntry("settings.json", settingsObj.toString(2))
                 writeZipEntry("amar_hishab_backup.json", legacyObj.toString(2))
+
+                // Embed actual profile photo binary if present
+                val photoBytesToWrite = profilePhotoBytes
+                if (photoBytesToWrite != null && photoBytesToWrite.isNotEmpty()) {
+                    val photoEntry = ZipEntry("profile_photo.jpg")
+                    zos.putNextEntry(photoEntry)
+                    zos.write(photoBytesToWrite)
+                    zos.closeEntry()
+                }
             }
         }
 
@@ -226,7 +290,7 @@ object DataBackupService {
         val sendIntent = Intent(Intent.ACTION_SEND).apply {
             type = "application/zip"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, if (isBengali) "আমার হিসাব ডেটা ব্যাকআপ" else "Amar Hishab Data Backup")
+            putExtra(Intent.EXTRA_SUBJECT, if (isBengali) "আমার হিসাব সম্পূর্ণ ব্যাকআপ" else "Amar Hishab Complete Backup")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         val chooserTitle = if (isBengali) "ব্যাকআপ ফাইল সংরক্ষণ বা শেয়ার করুন" else "Save or Share Amar Hishab Backup"
@@ -245,7 +309,9 @@ object DataBackupService {
 
     fun analyzeBackupStream(inputStream: InputStream): BackupAnalysis {
         return try {
-            val filesMap = mutableMapOf<String, String>()
+            val textFilesMap = mutableMapOf<String, String>()
+            var hasPhotoBinary = false
+
             ZipInputStream(inputStream).use { zis ->
                 var entry = zis.nextEntry
                 while (entry != null) {
@@ -253,15 +319,19 @@ object DataBackupService {
                         val name = entry.name.lowercase().substringAfterLast('/')
                         val baos = ByteArrayOutputStream()
                         zis.copyTo(baos)
-                        filesMap[name] = String(baos.toByteArray(), StandardCharsets.UTF_8)
+                        if (name == "profile_photo.jpg" || name.endsWith(".jpg") || name.endsWith(".png")) {
+                            hasPhotoBinary = true
+                        } else {
+                            textFilesMap[name] = String(baos.toByteArray(), StandardCharsets.UTF_8)
+                        }
                     }
                     zis.closeEntry()
                     entry = zis.nextEntry
                 }
             }
 
-            val metaJson = filesMap["backup_metadata.json"]
-            val hasTx = filesMap.containsKey("transactions.json") || filesMap.containsKey("amar_hishab_backup.json")
+            val metaJson = textFilesMap["backup_metadata.json"]
+            val hasTx = textFilesMap.containsKey("transactions.json") || textFilesMap.containsKey("amar_hishab_backup.json")
             if (metaJson == null && !hasTx) {
                 return BackupAnalysis(
                     isValid = false,
@@ -274,8 +344,12 @@ object DataBackupService {
             var businessTx = 0
             var catCount = 0
             var goalCount = 0
+            var hasProfile = textFilesMap.containsKey("profile.json")
+            var hasSettings = textFilesMap.containsKey("settings.json")
+            var hasSmartSpending = textFilesMap.containsKey("smart_spending.json")
+            var profileName = ""
             var dateStr = "Unknown"
-            var verStr = "v1.2.6"
+            var verStr = "v1.3.0"
 
             if (metaJson != null) {
                 val meta = JSONObject(metaJson)
@@ -284,11 +358,16 @@ object DataBackupService {
                 businessTx = meta.optInt("businessTransactionCount", 0)
                 catCount = meta.optInt("categoryCount", 0)
                 goalCount = meta.optInt("goalCount", 0)
+                hasProfile = meta.optBoolean("hasProfile", hasProfile)
+                hasPhotoBinary = meta.optBoolean("hasProfilePhoto", hasPhotoBinary)
+                profileName = meta.optString("profileName", "")
+                hasSettings = meta.optBoolean("hasSettings", hasSettings)
+                hasSmartSpending = meta.optBoolean("hasSmartSpending", hasSmartSpending)
                 dateStr = meta.optString("backupDateFormatted", "Unknown")
-                verStr = meta.optString("appVersion", "1.2.6")
+                verStr = meta.optString("appVersion", "1.3.0")
             }
 
-            filesMap["transactions.json"]?.let {
+            textFilesMap["transactions.json"]?.let {
                 try {
                     val arr = JSONArray(it)
                     txCount = arr.length()
@@ -302,16 +381,26 @@ object DataBackupService {
                     businessTx = b
                 } catch (_: Exception) {}
             }
-            filesMap["categories.json"]?.let {
+            textFilesMap["categories.json"]?.let {
                 try {
                     val arr = JSONArray(it)
                     catCount = arr.length()
                 } catch (_: Exception) {}
             }
-            filesMap["goals.json"]?.let {
+            textFilesMap["goals.json"]?.let {
                 try {
                     val arr = JSONArray(it)
                     goalCount = arr.length()
+                } catch (_: Exception) {}
+            }
+            textFilesMap["profile.json"]?.let {
+                try {
+                    val obj = JSONObject(it)
+                    profileName = obj.optString("name", profileName)
+                    hasProfile = true
+                    if (obj.optBoolean("hasPhoto", false)) {
+                        hasPhotoBinary = true
+                    }
                 } catch (_: Exception) {}
             }
 
@@ -322,6 +411,11 @@ object DataBackupService {
                 businessTransactionCount = businessTx,
                 categoryCount = catCount,
                 goalCount = goalCount,
+                hasProfileData = hasProfile,
+                hasProfilePhoto = hasPhotoBinary,
+                hasSettings = hasSettings,
+                hasSmartSpending = hasSmartSpending,
+                profileName = profileName,
                 backupDate = dateStr,
                 appVersion = verStr
             )
@@ -354,7 +448,9 @@ object DataBackupService {
         database: AmarHishabDatabase
     ): RestoreResult = withContext(Dispatchers.IO) {
         try {
-            val filesMap = mutableMapOf<String, String>()
+            val textFilesMap = mutableMapOf<String, String>()
+            val binaryFilesMap = mutableMapOf<String, ByteArray>()
+
             ZipInputStream(inputStream).use { zis ->
                 var entry = zis.nextEntry
                 while (entry != null) {
@@ -362,7 +458,12 @@ object DataBackupService {
                         val name = entry.name.lowercase().substringAfterLast('/')
                         val baos = ByteArrayOutputStream()
                         zis.copyTo(baos)
-                        filesMap[name] = String(baos.toByteArray(), StandardCharsets.UTF_8)
+                        val bytes = baos.toByteArray()
+                        if (name == "profile_photo.jpg" || name.endsWith(".jpg") || name.endsWith(".png") || name.endsWith(".jpeg")) {
+                            binaryFilesMap[name] = bytes
+                        } else {
+                            textFilesMap[name] = String(bytes, StandardCharsets.UTF_8)
+                        }
                     }
                     zis.closeEntry()
                     entry = zis.nextEntry
@@ -370,19 +471,95 @@ object DataBackupService {
             }
 
             // Verify validity
-            val hasTx = filesMap.containsKey("transactions.json") || filesMap.containsKey("amar_hishab_backup.json")
-            if (!hasTx && !filesMap.containsKey("backup_metadata.json")) {
+            val hasTx = textFilesMap.containsKey("transactions.json") || textFilesMap.containsKey("amar_hishab_backup.json")
+            if (!hasTx && !textFilesMap.containsKey("backup_metadata.json")) {
                 return@withContext RestoreResult(false, errorMessage = "The selected file is not a valid Amar Hishab backup archive.")
             }
 
+            val session = EncryptedSessionManager.getInstance(context)
             var restoredTx = 0
             var restoredPersonalTx = 0
             var restoredBusinessTx = 0
             var restoredCat = 0
             var restoredGoals = 0
+            var profileRestored = false
+            var settingsRestored = false
+            var smartSpendingRestored = false
 
-            // 1. Restore Custom Categories
-            filesMap["categories.json"]?.let { jsonStr ->
+            // 1. Restore Profile & Profile Photo
+            var restoredAvatarPath: String? = null
+            val photoBytes = binaryFilesMap["profile_photo.jpg"]
+                ?: binaryFilesMap.entries.firstOrNull { it.key.endsWith(".jpg") || it.key.endsWith(".png") }?.value
+
+            if (photoBytes != null && photoBytes.isNotEmpty()) {
+                try {
+                    val avatarFile = File(context.filesDir, "user_avatar_${System.currentTimeMillis()}.jpg")
+                    context.filesDir.listFiles { _, name -> name.startsWith("user_avatar") }?.forEach { it.delete() }
+                    avatarFile.writeBytes(photoBytes)
+                    restoredAvatarPath = avatarFile.absolutePath
+                    session.updateProfileAvatar(restoredAvatarPath)
+                    Log.d(TAG, "Restored profile photo to $restoredAvatarPath")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Profile photo extraction note: ${e.message}")
+                }
+            }
+
+            textFilesMap["profile.json"]?.let { profileJsonStr ->
+                try {
+                    val obj = JSONObject(profileJsonStr)
+                    val name = obj.optString("name", "AJ SRABON").ifBlank { "AJ SRABON" }
+                    val email = obj.optString("email", "ashrafuzzamansrabon@gmail.com")
+                    val phone = obj.optString("phone", "+8801XXXXXXXXX")
+                    session.saveUserProfile(name, email, phone, restoredAvatarPath)
+                    profileRestored = true
+                } catch (e: Exception) {
+                    Log.w(TAG, "Profile JSON parse note: ${e.message}")
+                }
+            }
+
+            // 2. Restore User Preferences & Settings
+            textFilesMap["settings.json"]?.let { settingsJsonStr ->
+                try {
+                    val obj = JSONObject(settingsJsonStr)
+                    if (obj.has("language")) session.setLanguage(obj.getString("language"))
+                    if (obj.has("themeMode")) session.setTheme(obj.getString("themeMode"))
+                    if (obj.has("activeWorkspace")) session.setWorkspace(Workspace.fromId(obj.getString("activeWorkspace")))
+                    if (obj.has("isBalanceHidden")) session.setBalanceHidden(obj.getBoolean("isBalanceHidden"))
+                    if (obj.has("notificationsEnabled")) session.setNotificationsEnabled(obj.getBoolean("notificationsEnabled"))
+                    if (obj.has("expenseRemindersEnabled")) session.setExpenseReminders(obj.getBoolean("expenseRemindersEnabled"))
+                    if (obj.has("monthlySummaryEnabled")) session.setMonthlySummaryEnabled(obj.getBoolean("monthlySummaryEnabled"))
+                    if (obj.has("appLockEnabled")) session.setAppLockEnabled(obj.getBoolean("appLockEnabled"))
+                    settingsRestored = true
+                } catch (e: Exception) {
+                    Log.w(TAG, "Settings restore note: ${e.message}")
+                }
+            }
+
+            // 3. Restore Smart Spending Planner Settings
+            textFilesMap["smart_spending.json"]?.let { smartJsonStr ->
+                try {
+                    val obj = JSONObject(smartJsonStr)
+                    val planner = SpendingPlannerManager.getInstance(context)
+                    if (obj.has("personalMonthlyLimit")) {
+                        planner.setMonthlyLimit(Workspace.PERSONAL, obj.getDouble("personalMonthlyLimit"))
+                    }
+                    if (obj.has("businessMonthlyLimit")) {
+                        planner.setMonthlyLimit(Workspace.BUSINESS, obj.getDouble("businessMonthlyLimit"))
+                    }
+                    if (obj.has("personalRecurringLimit")) {
+                        planner.setRecurringLimitEnabled(Workspace.PERSONAL, obj.getBoolean("personalRecurringLimit"))
+                    }
+                    if (obj.has("businessRecurringLimit")) {
+                        planner.setRecurringLimitEnabled(Workspace.BUSINESS, obj.getBoolean("businessRecurringLimit"))
+                    }
+                    smartSpendingRestored = true
+                } catch (e: Exception) {
+                    Log.w(TAG, "Smart spending restore note: ${e.message}")
+                }
+            }
+
+            // 4. Restore Custom Categories (safe deduplication)
+            textFilesMap["categories.json"]?.let { jsonStr ->
                 val categoryManager = CategoryManager.getInstance(context)
                 val catArray = JSONArray(jsonStr)
                 for (i in 0 until catArray.length()) {
@@ -412,7 +589,7 @@ object DataBackupService {
                 }
             }
 
-            // 2. Prepare Transactions
+            // 5. Prepare Transactions (safe deduplication, stable IDs, Personal/Business preservation)
             val toInsertTx = mutableListOf<TransactionEntity>()
             val existingTx = dao.getAllTransactionsList()
             val existingIds = existingTx.map { it.id }.toSet()
@@ -420,8 +597,8 @@ object DataBackupService {
                 "${it.date.trim()}_${String.format(Locale.US, "%.2f", it.amount)}_${it.type.trim().uppercase()}_${it.category.trim().lowercase()}_${it.accountCode.trim().lowercase()}_${it.workspace.trim().uppercase()}"
             }.toSet()
 
-            val txJsonStr = filesMap["transactions.json"]
-                ?: filesMap["amar_hishab_backup.json"]?.let { legacy ->
+            val txJsonStr = textFilesMap["transactions.json"]
+                ?: textFilesMap["amar_hishab_backup.json"]?.let { legacy ->
                     try {
                         JSONObject(legacy).optJSONArray("transactions")?.toString()
                     } catch (_: Exception) { null }
@@ -472,9 +649,9 @@ object DataBackupService {
                 }
             }
 
-            // 3. Prepare Savings Goals
+            // 6. Prepare Savings Goals
             val toInsertGoals = mutableListOf<SavingsGoalEntity>()
-            filesMap["goals.json"]?.let { goalJsonStr ->
+            textFilesMap["goals.json"]?.let { goalJsonStr ->
                 val existingGoals = goalDao.getAllGoalsList()
                 val existingGoalIds = existingGoals.map { it.id }.toSet()
                 val existingGoalNames = existingGoals.map { it.name.lowercase().trim() }.toSet()
@@ -524,6 +701,9 @@ object DataBackupService {
                 businessTransactionsRestored = restoredBusinessTx,
                 categoriesRestored = restoredCat,
                 goalsRestored = restoredGoals,
+                profileRestored = profileRestored,
+                settingsRestored = settingsRestored,
+                smartSpendingRestored = smartSpendingRestored,
                 budgetsRestored = 0,
                 recurringRestored = 0,
                 remindersRestored = 0

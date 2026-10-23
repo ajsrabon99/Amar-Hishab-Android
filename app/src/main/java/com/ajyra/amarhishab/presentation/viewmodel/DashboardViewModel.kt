@@ -11,6 +11,7 @@ import com.ajyra.amarhishab.model.SavingsGoal
 import com.ajyra.amarhishab.model.Transaction
 import com.ajyra.amarhishab.model.User
 import com.ajyra.amarhishab.network.NetworkResult
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class DashboardViewModel(
     private val financeRepository: FinanceRepository,
@@ -32,6 +34,7 @@ class DashboardViewModel(
 
     fun switchWorkspace(workspace: com.ajyra.amarhishab.model.Workspace) {
         sessionManager?.setWorkspace(workspace)
+        com.ajyra.amarhishab.analytics.AnalyticsManager.logWorkspaceSwitched(workspace == com.ajyra.amarhishab.model.Workspace.BUSINESS)
         refresh()
     }
 
@@ -102,27 +105,48 @@ class DashboardViewModel(
     val syncMessage: StateFlow<String?> = _syncMessage.asStateFlow()
 
     init {
-        refresh()
+        // Fast-path: Render immediately from local SQLite Room cache.
+        // As soon as Room produces the local financial summary, dismiss initial skeleton instantly.
+        viewModelScope.launch {
+            financeRepository.getFinancialSummary().collect {
+                _isInitialLoading.value = false
+            }
+        }
+        // Safety guard: Never block skeleton for more than 350ms even on brand new databases
+        viewModelScope.launch {
+            delay(350)
+            _isInitialLoading.value = false
+        }
+        // Silent background remote sync runs strictly asynchronously without blocking UI startup
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                withTimeoutOrNull(4000L) {
+                    financeRepository.syncWithBackend()
+                }
+            } catch (_: Exception) {
+                // Ignore offline network errors
+            }
+        }
     }
 
     /**
-     * Authoritative local refresh:
-     * Room reactive flows (summary, recentTransactions, categoryExpenses, activeSavingsGoal)
-     * automatically update the UI directly from SQLite.
-     * Silent optional backend sync is attempted without blocking the user or displaying false errors when offline.
+     * User-triggered pull-to-refresh:
+     * Room reactive flows automatically reflect any SQLite updates.
+     * Remote sync uses a strict 4-second timeout so pull-to-refresh remains snappy.
      */
     fun refresh() {
         viewModelScope.launch {
             _isRefreshing.value = true
             _syncMessage.value = null
             try {
-                financeRepository.syncWithBackend()
+                withTimeoutOrNull(4000L) {
+                    financeRepository.syncWithBackend()
+                }
             } catch (_: Exception) {
-                // Ignore offline network errors during local dashboard refresh
+                // Ignore network errors during offline refresh
             }
-            delay(250) // Smooth refresh animation
+            delay(150)
             _isRefreshing.value = false
-            _isInitialLoading.value = false
         }
     }
 
