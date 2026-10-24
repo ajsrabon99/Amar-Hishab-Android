@@ -5,7 +5,7 @@ import android.util.Log
 import android.view.ViewGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -41,25 +41,19 @@ object AdMobManager {
         get() = if (BuildConfig.DEBUG) TEST_BANNER_AD_UNIT_ID else PROD_BANNER_AD_UNIT_ID
 
     /**
-     * Initializes Google Mobile Ads SDK once at application startup.
+     * Initializes Google Mobile Ads SDK once at application startup on the Main UI thread.
      */
     fun initialize(context: Context) {
         if (isInitialized.compareAndSet(false, true)) {
             try {
-                // Initialize in background to avoid any startup freeze
-                Thread {
-                    try {
-                        MobileAds.initialize(context) { status ->
-                            if (BuildConfig.DEBUG) {
-                                Log.d(TAG, "Google Mobile Ads initialized successfully: $status")
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "AdMob initialization error: ${e.message}")
+                // Must be invoked on the main UI thread as required by Google Mobile Ads SDK
+                MobileAds.initialize(context) { status ->
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "Google Mobile Ads initialized successfully on main thread")
                     }
-                }.start()
+                }
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to start AdMob initialization thread: ${e.message}")
+                Log.w(TAG, "AdMob initialization error: ${e.message}")
             }
         }
     }
@@ -68,7 +62,8 @@ object AdMobManager {
 /**
  * Standard AdMob Banner Ad Composable.
  * Used exclusively on Transaction, Report, Profile, and Savings Goals screens.
- * Properly manages AdView lifecycle and destroys ad on dispose to prevent memory leaks.
+ * Properly manages AdView lifecycle, maintains consistent 50dp height to prevent zero-height collapse,
+ * and destroys ad on dispose to prevent memory leaks.
  */
 @Composable
 fun AdMobBanner(
@@ -81,7 +76,6 @@ fun AdMobBanner(
     }
 
     var currentAdView by remember { mutableStateOf<AdView?>(null) }
-    var isAdLoaded by remember { mutableStateOf(false) }
 
     DisposableEffect(adUnitId) {
         onDispose {
@@ -97,30 +91,34 @@ fun AdMobBanner(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = if (isAdLoaded) 50.dp else 0.dp)
-            .padding(vertical = 4.dp),
+            .height(50.dp)
+            .padding(vertical = 2.dp),
         contentAlignment = Alignment.Center
     ) {
         AndroidView(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
             factory = { context ->
                 AdView(context).apply {
                     setAdSize(AdSize.BANNER)
                     setAdUnitId(adUnitId)
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
+                        ViewGroup.LayoutParams.MATCH_PARENT
                     )
                     adListener = object : AdListener() {
                         override fun onAdLoaded() {
                             super.onAdLoaded()
-                            isAdLoaded = true
+                            Log.d("AdMobBanner", "Banner ad loaded successfully ($adUnitId)")
                         }
 
                         override fun onAdFailedToLoad(error: LoadAdError) {
                             super.onAdFailedToLoad(error)
-                            isAdLoaded = false
-                            Log.d("AdMobBanner", "Banner ad failed to load: ${error.message}")
+                            Log.w(
+                                "AdMobBanner",
+                                "Banner ad failed to load ($adUnitId): code=${error.code}, message=${error.message}, domain=${error.domain}"
+                            )
                         }
                     }
                     val adRequest = AdRequest.Builder().build()
