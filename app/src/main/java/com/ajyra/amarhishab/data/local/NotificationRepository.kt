@@ -178,9 +178,9 @@ class NotificationRepository(private val context: Context) {
 
             val intent = Intent(context, com.ajyra.amarhishab.MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra("destination", "settings")
-                putExtra("section", "community")
                 if (notification.actionUrl != null) {
+                    putExtra("destination", "settings")
+                    putExtra("section", "community")
                     data = android.net.Uri.parse(notification.actionUrl)
                 }
             }
@@ -209,6 +209,28 @@ class NotificationRepository(private val context: Context) {
         }
     }
 
+    /**
+     * Professional one-time welcome notification for newly installed app on first launch.
+     */
+    fun triggerFirstLaunchWelcomeNotificationOnce() {
+        val hasPrompted = prefs.getBoolean(KEY_PROMPTED_WELCOME, false)
+        if (!hasPrompted) {
+            prefs.edit().putBoolean(KEY_PROMPTED_WELCOME, true).apply()
+            val notification = AppNotification(
+                id = "welcome_midnight_serenity",
+                titleEn = "Welcome to Midnight Serenity 🌙",
+                titleBn = "Welcome to Midnight Serenity 🌙",
+                messageEn = "A calmer new look for your daily finances. Explore the latest Amar Hishab experience and keep your finances organized, one day at a time.",
+                messageBn = "A calmer new look for your daily finances. Explore the latest Amar Hishab experience and keep your finances organized, one day at a time.",
+                timestamp = System.currentTimeMillis(),
+                type = NotificationType.SYSTEM,
+                isRead = false,
+                actionUrl = null
+            )
+            addNotification(notification, showSystemNotification = true)
+        }
+    }
+
     fun triggerTelegramCommunityNotificationOnce() {
         val hasPrompted = prefs.getBoolean(KEY_PROMPTED_TELEGRAM, false)
         if (!hasPrompted) {
@@ -233,6 +255,7 @@ class NotificationRepository(private val context: Context) {
         private const val PREF_NAME = "amar_hishab_notifications"
         private const val KEY_NOTIFICATIONS_JSON = "notifications_json"
         private const val KEY_PROMPTED_TELEGRAM = "key_prompted_telegram_community"
+        private const val KEY_PROMPTED_WELCOME = "key_prompted_welcome_midnight_serenity"
 
         @Volatile
         private var INSTANCE: NotificationRepository? = null

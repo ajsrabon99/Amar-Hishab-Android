@@ -53,6 +53,10 @@ class MainActivity : FragmentActivity() {
                 contract = ActivityResultContracts.RequestPermission()
             ) { isGranted ->
                 sessionManager.setNotificationsEnabled(isGranted)
+                if (isGranted) {
+                    com.ajyra.amarhishab.data.local.NotificationRepository.getInstance(applicationContext)
+                        .triggerFirstLaunchWelcomeNotificationOnce()
+                }
             }
 
             var pendingRoute by remember {
@@ -75,7 +79,13 @@ class MainActivity : FragmentActivity() {
                         }
                     } else {
                         sessionManager.setNotificationsEnabled(true)
+                        com.ajyra.amarhishab.data.local.NotificationRepository.getInstance(applicationContext)
+                            .triggerFirstLaunchWelcomeNotificationOnce()
                     }
+                } else {
+                    sessionManager.setNotificationsEnabled(true)
+                    com.ajyra.amarhishab.data.local.NotificationRepository.getInstance(applicationContext)
+                        .triggerFirstLaunchWelcomeNotificationOnce()
                 }
                 // Schedule/prompt official Telegram community notification once for user
                 com.ajyra.amarhishab.data.local.NotificationRepository.getInstance(applicationContext)
